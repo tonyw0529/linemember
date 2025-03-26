@@ -154,9 +154,19 @@
     
     birthdayInput.addEventListener('input', () => {
       const selected = new Date(birthdayInput.value);
-      const limit = new Date(limitDate);
-      if (selected > limit) {
-        alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！（生日應早於 " + limitDate + ")");
+      const today = new Date();
+      
+      // 計算年齡
+      let age = today.getFullYear() - selected.getFullYear();
+      const monthDiff = today.getMonth() - selected.getMonth();
+      
+      // 如果生日還沒到，年齡減1
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < selected.getDate())) {
+        age--;
+      }
+      
+      if (age < 18) {
+        alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！");
         birthdayInput.value = "";
       }
     });
