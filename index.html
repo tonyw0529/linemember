@@ -152,6 +152,8 @@
     const limitDate = `${yyyy}-${mm}-${dd}`;
     birthdayInput.max = limitDate;
     
+    // 暫時關閉年齡驗證
+    /*
     birthdayInput.addEventListener('input', () => {
       const selected = new Date(birthdayInput.value);
       const today = new Date();
@@ -170,6 +172,7 @@
         birthdayInput.value = "";
       }
     });
+    */
   }
 
   async function initLiff() {
