@@ -112,54 +112,69 @@
   function initCityDistrict() {
     const citySelect = document.getElementById('city');
     const districtSelect = document.getElementById('district');
-    for (let city in cityDistrictMap) {
+    
+    // 清空現有選項
+    citySelect.innerHTML = '';
+    districtSelect.innerHTML = '';
+    
+    // 添加縣市選項
+    Object.keys(cityDistrictMap).forEach(city => {
       const option = document.createElement('option');
       option.value = city;
       option.textContent = city;
       citySelect.appendChild(option);
-    }
+    });
+
+    // 當縣市改變時更新鄉鎮區選項
     citySelect.addEventListener('change', () => {
       districtSelect.innerHTML = '';
-      cityDistrictMap[citySelect.value].forEach(d => {
-        const option = document.createElement('option');
-        option.value = d;
-        option.textContent = d;
-        districtSelect.appendChild(option);
-      });
+      const selectedCity = citySelect.value;
+      if (selectedCity && cityDistrictMap[selectedCity]) {
+        cityDistrictMap[selectedCity].forEach(district => {
+          const option = document.createElement('option');
+          option.value = district;
+          option.textContent = district;
+          districtSelect.appendChild(option);
+        });
+      }
     });
+
+    // 觸發一次change事件來初始化鄉鎮區選項
     citySelect.dispatchEvent(new Event('change'));
   }
 
   function initBirthdayLimit() {
-  const birthdayInput = document.getElementById('birthday');
-  const today = new Date();
-  const yyyy = today.getFullYear() - 18;
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  const limitDate = `${yyyy}-${mm}-${dd}`;
-  birthdayInput.max = limitDate;
-  birthdayInput.addEventListener('input', () => {
-    const selected = new Date(birthdayInput.value);
-    const limit = new Date(limitDate);
-    if (selected > limit) {
-      alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！（生日應早於 " + limitDate + ")");
-      birthdayInput.value = "";
-    }
-  });
-}
+    const birthdayInput = document.getElementById('birthday');
+    const today = new Date();
+    const yyyy = today.getFullYear() - 18;
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const limitDate = `${yyyy}-${mm}-${dd}`;
+    birthdayInput.max = limitDate;
+    
+    birthdayInput.addEventListener('input', () => {
+      const selected = new Date(birthdayInput.value);
+      const limit = new Date(limitDate);
+      if (selected > limit) {
+        alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！（生日應早於 " + limitDate + ")");
+        birthdayInput.value = "";
+      }
     });
   }
 
   async function initLiff() {
     try {
       await liff.init({ liffId: "2007107369-9mWokDGX" });
-      if (!liff.isLoggedIn()) liff.login();
+      if (!liff.isLoggedIn()) {
+        await liff.login();
+      }
       const profile = await liff.getProfile();
       document.getElementById('userId').value = profile.userId;
       initCityDistrict();
       initBirthdayLimit();
     } catch (error) {
-      alert("LIFF 初始化失敗：" + error);
+      console.error("LIFF 初始化失敗：", error);
+      alert("LIFF 初始化失敗：" + error.message);
     }
   }
 
@@ -181,20 +196,38 @@
       plates1: document.getElementById('plate1').value.trim() || "",
       plates2: document.getElementById('plate2').value.trim() || ""
     };
+
     if (!data.plates0) {
       alert("請至少填寫一個車牌");
       return;
     }
+
     try {
+      // 添加認證信息
       const response = await fetch("https://proxy-xr4v2vbiba-de.a.run.app/proxy", {
         method: 'POST',
         body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer tony@genwintech.com'  // 使用 Bearer token 認證
+        },
+        credentials: 'include'  // 包含認證信息
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
+      if (result.error) {
+        throw new Error(result.error);
+      }
       alert(result.message || "資料已送出！");
       liff.closeWindow();
     } catch (err) {
+      console.error("送出失敗：", err);
       alert("送出失敗：" + err.message);
     }
   });
