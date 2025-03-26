@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>會員註冊</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="districtMap.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f7f7f7;
+    }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 24px 16px;
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      margin-top: 20px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 24px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background-color: #00c300;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #00a000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>會員註冊</h2>
+    <form id="registerForm">
+      <input type="hidden" id="userId" />
+      <label>姓名</label>
+      <input type="text" id="name" required />
+      <label>暱稱</label>
+      <input type="text" id="nickname" required />
+      <label>電話</label>
+      <input type="tel" id="phone" required />
+      <label>Email</label>
+      <input type="email" id="email" required />
+      <label>生日</label>
+      <input type="date" id="birthday" required />
+      <label>縣市</label>
+      <select id="city" required></select>
+      <label>鄉鎮區</label>
+      <select id="district" required></select>
+      <label>車牌1（必填）</label>
+      <input type="text" id="plate0" required />
+      <label>車牌2</label>
+      <input type="text" id="plate1" />
+      <label>車牌3</label>
+      <input type="text" id="plate2" />
+      <button type="submit">送出資料</button>
+    </form>
+  </div>
+
+  <script>
+    window.onload = () => {
+      const citySelect = document.getElementById('city');
+      const districtSelect = document.getElementById('district');
+
+      for (let city in cityDistrictMap) {
+        const option = document.createElement('option');
+        option.value = city;
+        option.textContent = city;
+        citySelect.appendChild(option);
+      }
+
+      citySelect.addEventListener('change', () => {
+        districtSelect.innerHTML = '';
+        cityDistrictMap[citySelect.value].forEach(d => {
+          const option = document.createElement('option');
+          option.value = d;
+          option.textContent = d;
+          districtSelect.appendChild(option);
+        });
+      });
+
+      citySelect.dispatchEvent(new Event('change'));
+    };
+
+    async function initLiff() {
+      try {
+        await liff.init({ liffId: "2007107369-9mWokDGX" });
+        if (!liff.isLoggedIn()) liff.login();
+        const profile = await liff.getProfile();
+        document.getElementById('userId').value = profile.userId;
+      } catch (error) {
+        alert("LIFF 初始化失敗：" + error);
+      }
+    }
+    initLiff();
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        formType: "membership",
+        lineUID: document.getElementById('userId').value,
+        name: document.getElementById('name').value,
+        nickName: document.getElementById('nickname').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+        birthday: document.getElementById('birthday').value,
+        city: document.getElementById('city').value,
+        district: document.getElementById('district').value,
+        plates0: document.getElementById('plate0').value.trim(),
+        plates1: document.getElementById('plate1').value.trim() || "",
+        plates2: document.getElementById('plate2').value.trim() || ""
+      };
+
+      if (!data.plates0) {
+        alert("請至少填寫一個車牌");
+        return;
+      }
+
+      try {
+        const response = await fetch("https://proxy-xr4v2vbiba-de.a.run.app/proxy", {
+          method: 'POST',
+          body: JSON.stringify(data),
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) throw new Error("資料送出失敗，狀態碼：" + response.status);
+        const result = await response.json();
+        alert(result.message || "資料已送出！");
+        liff.closeWindow();
+      } catch (err) {
+        alert("送出失敗：" + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
