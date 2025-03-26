@@ -6,89 +6,101 @@
   <title>會員註冊</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="districtMap.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f7f7f7;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #e0f7fa, #e0ffe0);
+      padding: 20px;
     }
-    .container {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 24px 16px;
-      background-color: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      margin-top: 20px;
+    .card {
+      border-radius: 1rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     }
-    h2 {
-      text-align: center;
-      margin-bottom: 24px;
-      font-size: 24px;
+    .form-label {
+      font-weight: 600;
     }
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: bold;
-      font-size: 14px;
+    .form-control:focus {
+      border-color: #00c300;
+      box-shadow: 0 0 0 0.2rem rgba(0, 195, 0, 0.25);
     }
-    input, select {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 16px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-    }
-    button {
-      width: 100%;
-      padding: 14px;
+    .btn-submit {
       background-color: #00c300;
-      color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
     }
-    button:hover {
+    .btn-submit:hover {
       background-color: #00a000;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>會員註冊</h2>
-    <form id="registerForm">
-      <input type="hidden" id="userId" />
-      <label>姓名</label>
-      <input type="text" id="name" required />
-      <label>暱稱</label>
-      <input type="text" id="nickname" required />
-      <label>電話</label>
-      <input type="tel" id="phone" required />
-      <label>Email</label>
-      <input type="email" id="email" required />
-      <label>生日</label>
-      <input type="date" id="birthday" required />
-      <label>縣市</label>
-      <select id="city" required></select>
-      <label>鄉鎮區</label>
-      <select id="district" required></select>
-      <label>車牌1（必填）</label>
-      <input type="text" id="plate0" required />
-      <label>車牌2</label>
-      <input type="text" id="plate1" />
-      <label>車牌3</label>
-      <input type="text" id="plate2" />
-      <button type="submit">送出資料</button>
-    </form>
+    <div class="card p-4 mt-4">
+      <h3 class="text-center mb-4">會員註冊</h3>
+      <form id="registerForm">
+        <input type="hidden" id="userId" />
+
+        <div class="mb-3">
+          <label class="form-label">姓名</label>
+          <input type="text" id="name" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">暱稱</label>
+          <input type="text" id="nickname" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">電話</label>
+          <input type="tel" id="phone" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" id="email" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">生日</label>
+          <input type="date" id="birthday" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">縣市</label>
+          <select id="city" class="form-select" required></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">鄉鎮區</label>
+          <select id="district" class="form-select" required></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">車牌1（必填）</label>
+          <input type="text" id="plate0" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">車牌2</label>
+          <input type="text" id="plate1" class="form-control" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">車牌3</label>
+          <input type="text" id="plate2" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-submit w-100 py-2">送出資料</button>
+      </form>
+    </div>
   </div>
 
   <script>
     window.onload = () => {
+      const birthdayInput = document.getElementById('birthday');
+      const birthdayLabel = birthdayInput.previousElementSibling;
+      const today = new Date();
+      today.setFullYear(today.getFullYear() - 18);
+      const maxDate = today.toISOString().split('T')[0];
+      birthdayInput.max = maxDate;
+      birthdayInput.addEventListener('input', () => {
+        const selected = new Date(birthdayInput.value);
+        const limit = new Date(maxDate);
+        if (selected > limit) {
+          alert("👶 抱歉，我們目前只收 18 歲以上的大人會員唷！");
+          birthdayInput.value = "";
+        }
+      });
       const citySelect = document.getElementById('city');
       const districtSelect = document.getElementById('district');
 
@@ -110,6 +122,13 @@
       });
 
       citySelect.dispatchEvent(new Event('change'));
+
+      // 設定生日最大值為今天 -18 年
+      const birthdayInput = document.getElementById('birthday');
+      const today = new Date();
+      today.setFullYear(today.getFullYear() - 18);
+      const maxDate = today.toISOString().split('T')[0];
+      birthdayInput.max = maxDate;
     };
 
     async function initLiff() {
