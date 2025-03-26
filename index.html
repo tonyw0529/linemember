@@ -131,17 +131,22 @@
   }
 
   function initBirthdayLimit() {
-    const birthdayInput = document.getElementById('birthday');
-    const today = new Date();
-    today.setFullYear(today.getFullYear() - 18);
-    birthdayInput.max = today.toISOString().split('T')[0];
-    birthdayInput.addEventListener('input', () => {
-      const selected = new Date(birthdayInput.value);
-      const limit = new Date(birthdayInput.max);
-      if (selected > limit) {
-        alert("👶 抱歉，我們目前只收 18 歲以上的大人會員唷！");
-        birthdayInput.value = "";
-      }
+  const birthdayInput = document.getElementById('birthday');
+  const today = new Date();
+  const yyyy = today.getFullYear() - 18;
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const limitDate = `${yyyy}-${mm}-${dd}`;
+  birthdayInput.max = limitDate;
+  birthdayInput.addEventListener('input', () => {
+    const selected = new Date(birthdayInput.value);
+    const limit = new Date(limitDate);
+    if (selected > limit) {
+      alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！（生日應早於 " + limitDate + ")");
+      birthdayInput.value = "";
+    }
+  });
+}
     });
   }
 
