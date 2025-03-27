@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>會員註冊</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #e0f7fa, #e0ffe0);
+      padding: 20px;
+    }
+    .card {
+      border-radius: 1rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+    .form-label {
+      font-weight: 600;
+    }  
+    .form-control:focus {
+      border-color: #00c300;
+      box-shadow: 0 0 0 0.2rem rgba(0, 195, 0, 0.25);
+    }
+    .btn-submit {
+      background-color: #00c300;
+      border: none;
+    }
+    .btn-submit:hover {
+      background-color: #00a000;
+    }
+    
+    /* 自定義對話框樣式 */
+    .custom-dialog {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .dialog-content {
+      background-color: #222;
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 90%;
+      width: 320px;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    
+    .dialog-title {
+      background-color: #6b236b;
+      color: white;
+      padding: 10px;
+      margin: -20px -20px 15px -20px;
+      border-radius: 10px 10px 0 0;
+    }
+    
+    .dialog-message {
+      margin-bottom: 20px;
+      font-size: 16px;
+    }
+    
+    .dialog-button {
+      background-color: #ff97e9;
+      color: #000;
+      padding: 8px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card p-4 mt-4">
+      <h3 class="text-center mb-4">會員註冊</h3>
+      <form id="registerForm">
+        <input type="hidden" id="userId" />
+        <div class="mb-3">
+          <label class="form-label">姓名</label>
+          <input type="text" id="name" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">暱稱</label>
+          <input type="text" id="nickname" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">電話</label>
+          <input type="tel" id="phone" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" id="email" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">生日</label>
+          <input type="date" id="birthday" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">縣市</label>
+          <select id="city" class="form-select" required></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">鄉鎮區</label>
+          <select id="district" class="form-select" required></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">車牌1（必填）</label>
+          <input type="text" id="plate0" class="form-control" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">車牌2</label>
+          <input type="text" id="plate1" class="form-control" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">車牌3</label>
+          <input type="text" id="plate2" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-submit w-100 py-2">送出資料</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 自定義對話框 -->
+  <div class="custom-dialog" id="customDialog">
+    <div class="dialog-content">
+      <div class="dialog-title" id="dialogTitle">會員系統</div>
+      <div class="dialog-message" id="dialogMessage"></div>
+      <button class="dialog-button" id="dialogButton">確定</button>
+    </div>
+  </div>
+
+<script>
+  const cityDistrictMap = {
+  "台北市": ["中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區", "內湖區", "南港區", "文山區"],
+  "新北市": ["板橋區", "三重區", "中和區", "永和區", "新莊區", "新店區", "土城區", "蘆洲區", "汐止區", "樹林區", "淡水區", "五股區", "三峽區", "林口區", "鶯歌區", "瑞芳區", "泰山區", "八里區", "深坑區", "石碇區", "坪林區", "三芝區", "石門區"],
+  "桃園市": ["桃園區", "中壢區", "平鎮區", "八德區", "楊梅區", "蘆竹區", "龜山區", "大園區", "大溪區", "觀音區", "新屋區", "龍潭區", "復興區"],
+  "台中市": ["中區", "東區", "南區", "西區", "北區", "西屯區", "南屯區", "北屯區", "豐原區", "大里區", "太平區", "霧峰區", "烏日區", "后里區", "潭子區", "大雅區", "神岡區", "大肚區", "沙鹿區", "龍井區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區"],
+  "台南市": ["中西區", "東區", "南區", "北區", "安平區", "安南區", "永康區", "歸仁區", "新營區", "鹽水區", "白河區", "柳營區", "後壁區", "東山區", "麻豆區", "下營區", "六甲區", "官田區", "大內區", "佳里區", "學甲區", "西港區", "七股區", "將軍區", "北門區", "新化區", "新市區", "善化區", "安定區", "山上區", "大屯區", "左鎮區", "南化區", "仁德區", "關廟區", "龍崎區"],
+  "高雄市": ["新興區", "前金區", "苓雅區", "鹽埕區", "鼓山區", "旗津區", "前鎮區", "三民區", "楠梓區", "小港區", "左營區", "仁武區", "大社區", "岡山區", "路竹區", "阿蓮區", "田寮區", "燕巢區", "橋頭區", "梓官區", "彌陀區", "永安區", "湖內區", "鳳山區", "大寮區", "林園區", "鳥松區", "大樹區", "旗山區", "美濃區", "六龜區", "內門區", "杉林區", "甲仙區", "桃源區", "那瑪夏區", "茂林區", "茄萣區"],
+  "基隆市": ["仁愛區", "信義區", "中正區", "中山區", "安樂區", "暖暖區", "七堵區"],
+  "新竹市": ["東區", "北區", "香山區"],
+  "嘉義市": ["東區", "西區"],
+  "新竹縣": ["竹北市", "竹東鎮", "新埔鎮", "關西鎮", "湖口鄉", "新豐鄉", "芎林鄉", "橫山鄉", "北埔鄉", "寶山鄉", "峨眉鄉", "尖石鄉", "五峰鄉"],
+  "苗栗縣": ["苗栗市", "頭份市", "苑裡鎮", "通霄鎮", "竹南鎮", "後龍鎮", "卓蘭鎮", "西湖鄉", "頭屋鄉", "公館鄉", "銅鑼鄉", "三義鄉", "造橋鄉", "三灣鄉", "南庄鄉", "大湖鄉", "獅潭鄉", "泰安鄉"],
+  "彰化縣": ["彰化市", "鹿港鎮", "和美鎮", "線西鄉", "伸港鄉", "福興鄉", "秀水鄉", "花壇鄉", "芬園鄉", "員林市", "溪湖鎮", "田中鎮", "大村鄉", "埔鹽鄉", "埔心鄉", "永靖鄉", "社頭鄉", "二水鄉", "北斗鎮", "二林鎮", "田尾鄉", "埤頭鄉", "芳苑鄉", "大城鄉", "竹塘鄉", "溪州鄉"],
+  "南投縣": ["南投市", "埔里鎮", "草屯鎮", "竹山鎮", "集集鎮", "名間鄉", "鹿谷鄉", "中寮鄉", "魚池鄉", "國姓鄉", "水里鄉", "信義鄉", "仁愛鄉"],
+  "雲林縣": ["斗六市", "斗南鎮", "虎尾鎮", "西螺鎮", "土庫鎮", "北港鎮", "古坑鄉", "大埤鄉", "莿桐鄉", "林內鄉", "二崙鄉", "崙背鄉", "麥寮鄉", "東勢鄉", "褒忠鄉", "臺西鄉", "元長鄉", "四湖鄉", "口湖鄉", "水林鄉"],
+  "嘉義縣": ["太保市", "朴子市", "布袋鎮", "大林鎮", "民雄鄉", "溪口鄉", "新港鄉", "六腳鄉", "東石鄉", "義竹鄉", "鹿草鄉", "水上鄉", "中埔鄉", "竹崎鄉", "梅山鄉", "番路鄉", "大埔鄉", "阿里山鄉"],
+  "屏東縣": ["屏東市", "潮州鎮", "東港鎮", "恆春鎮", "萬丹鄉", "長治鄉", "麟洛鄉", "九如鄉", "里港鄉", "鹽埔鄉", "高樹鄉", "萬巒鄉", "內埔鄉", "竹田鄉", "新埤鄉", "枋寮鄉", "新園鄉", "崁頂鄉", "林邊鄉", "南州鄉", "佳冬鄉", "琉球鄉", "車城鄉", "滿州鄉", "枋山鄉", "三地門鄉", "霧台鄉", "瑪家鄉", "泰武鄉", "來義鄉", "春日鄉", "獅子鄉", "牡丹鄉"],
+  "台東縣": ["台東市", "成功鎮", "關山鎮", "卑南鄉", "鹿野鄉", "池上鄉", "東河鄉", "長濱鄉", "太麻里鄉", "大武鄉", "綠島鄉", "海端鄉", "延平鄉", "金峰鄉", "達仁鄉", "蘭嶼鄉"],
+  "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光復鄉", "豐濱鄉", "瑞穗鄉", "萬榮鄉", "卓溪鄉", "富里鄉"],
+  "宜蘭縣": ["宜蘭市", "羅東鎮", "蘇澳鎮", "頭城鎮", "礁溪鄉", "壯圍鄉", "員山鄉", "冬山鄉", "五結鄉", "三星鄉", "大同鄉", "南澳鄉"],
+  "澎湖縣": ["馬公市", "湖西鄉", "白沙鄉", "西嶼鄉", "望安鄉", "七美鄉"],
+  "金門縣": ["金城鎮", "金湖鎮", "金沙鎮", "金寧鄉", "烈嶼鄉", "烏坵鄉"],
+  "連江縣": ["南竿鄉", "北竿鄉", "莒光鄉", "東引鄉"]
+};
+
+  // 全局變量，用於標記 LIFF 是否初始化成功
+  let liffInitialized = false;
+  // 用於存儲是否已經提交過表單
+  let hasSubmitted = false;
+  // 表單提交後的冷卻時間（毫秒）
+  const SUBMIT_COOLDOWN = 5000;
+
+  // 從 localStorage 中檢查用戶是否已經提交過表單
+  function checkPreviousSubmission(userId) {
+    try {
+      // 嘗試從 localStorage 獲取已提交數據
+      const submittedData = localStorage.getItem('submittedUserIds');
+      if (submittedData) {
+        const submittedUsers = JSON.parse(submittedData);
+        // 檢查當前用戶是否在已提交列表中
+        return submittedUsers.includes(userId);
+      }
+    } catch (e) {
+      console.error('檢查提交歷史記錄時出錯:', e);
+    }
+    return false;
+  }
+
+  // 記錄用戶已提交表單
+  function recordSubmission(userId) {
+    try {
+      let submittedUsers = [];
+      const submittedData = localStorage.getItem('submittedUserIds');
+      
+      if (submittedData) {
+        submittedUsers = JSON.parse(submittedData);
+      }
+      
+      // 只有在列表中沒有該用戶時才添加
+      if (!submittedUsers.includes(userId)) {
+        submittedUsers.push(userId);
+        localStorage.setItem('submittedUserIds', JSON.stringify(submittedUsers));
+      }
+    } catch (e) {
+      console.error('記錄提交歷史時出錯:', e);
+    }
+  }
+
+  // 清除提交記錄
+  function clearSubmissionRecord(userId) {
+    try {
+      const submittedData = localStorage.getItem('submittedUserIds');
+      if (submittedData) {
+        let submittedUsers = JSON.parse(submittedData);
+        // 從列表中移除特定用戶
+        submittedUsers = submittedUsers.filter(id => id !== userId);
+        localStorage.setItem('submittedUserIds', JSON.stringify(submittedUsers));
+      }
+      console.log('已清除用戶提交記錄:', userId);
+      return true;
+    } catch (e) {
+      console.error('清除提交記錄時出錯:', e);
+      return false;
+    }
+  }
+
+  // 清除所有提交記錄
+  function clearAllSubmissionRecords() {
+    try {
+      localStorage.removeItem('submittedUserIds');
+      console.log('已清除所有提交記錄');
+      return true;
+    } catch (e) {
+      console.error('清除所有提交記錄時出錯:', e);
+      return false;
+    }
+  }
+
+  // 禁用提交按鈕
+  function disableSubmitButton() {
+    const submitButton = document.querySelector('.btn-submit');
+    submitButton.disabled = true;
+    submitButton.textContent = '已送出資料';
+    submitButton.style.backgroundColor = '#888';
+  }
+
+  function initCityDistrict() {
+    const citySelect = document.getElementById('city');
+    const districtSelect = document.getElementById('district');
+    
+    // 清空選項
+    citySelect.innerHTML = '<option value="">請選擇縣市</option>';
+    districtSelect.innerHTML = '<option value="">請選擇鄉鎮區</option>';
+    
+    // 添加縣市選項
+    Object.keys(cityDistrictMap).forEach(city => {
+      const option = document.createElement('option');
+      option.value = city;
+      option.textContent = city;
+      citySelect.appendChild(option);
+    });
+    
+    // 縣市變更時更新鄉鎮區
+    citySelect.addEventListener('change', () => {
+      const selectedCity = citySelect.value;
+      districtSelect.innerHTML = '<option value="">請選擇鄉鎮區</option>';
+      
+      if (selectedCity && cityDistrictMap[selectedCity]) {
+        cityDistrictMap[selectedCity].forEach(district => {
+          const option = document.createElement('option');
+          option.value = district;
+          option.textContent = district;
+          districtSelect.appendChild(option);
+        });
+      }
+    });
+  }
+  
+  // 檢查是否年滿18歲
+  function isAtLeast18YearsOld(birthDateStr) {
+    const birthDate = new Date(birthDateStr);
+    const today = new Date();
+    
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age >= 18;
+  }
+  
+  // 顯示自定義對話框
+  function showCustomDialog(message, title = "會員系統") {
+    const dialog = document.getElementById('customDialog');
+    const dialogMessage = document.getElementById('dialogMessage');
+    const dialogTitle = document.getElementById('dialogTitle');
+    const dialogButton = document.getElementById('dialogButton');
+    
+    dialogMessage.innerHTML = message;
+    dialogTitle.textContent = title;
+    dialog.style.display = 'flex';
+    
+    // 點擊確定按鈕關閉對話框
+    dialogButton.onclick = function() {
+      dialog.style.display = 'none';
+    };
+    
+    // 點擊背景也可關閉對話框
+    dialog.onclick = function(event) {
+      if (event.target === dialog) {
+        dialog.style.display = 'none';
+      }
+    };
+    
+    return new Promise(resolve => {
+      dialogButton.onclick = function() {
+        dialog.style.display = 'none';
+        resolve(true);
+      };
+    });
+  }
+  
+  // 專門用於顯示包含會員編號的對話框
+  function showMemberNumberDialog(memberNumber) {
+    if (!memberNumber) return;
+    
+    // 記錄此用戶已經提交過
+    const userId = document.getElementById('userId').value;
+    recordSubmission(userId);
+    
+    // 顯示成功提示，包含會員編號
+    const successMessage = "恭喜您已經成功登錄成會員<br><br>您的會員編號是：<strong style='color:#ff97e9;font-size:18px'>" + 
+      memberNumber + "</strong><br><br>謝謝！";
+    
+    showCustomDialog(successMessage, "註冊成功").then(() => {
+      // 對話框關閉後的操作
+      // 添加緩衝時間後再關閉窗口
+      if (liffInitialized && liff.isInClient()) {
+        console.log('將在3秒後關閉LIFF窗口');
+        setTimeout(() => {
+          console.log('緩衝時間結束，關閉LIFF窗口');
+          liff.closeWindow();
+        }, 3000);
+      }
+    });
+  }
+
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // 檢查是否正在提交或已經提交過
+    if (hasSubmitted) {
+      showCustomDialog('您已經提交過表單，請勿重複提交');
+      return;
+    }
+    
+    // 檢查 LIFF 是否已初始化，如果沒有初始化則提示用戶
+    if (liffInitialized && !liff.isLoggedIn()) {
+      showCustomDialog('請先登入 LINE 帳號');
+      return;
+    }
+
+    // 檢查年齡
+    const birthDate = document.getElementById('birthday').value;
+    if (!isAtLeast18YearsOld(birthDate)) {
+      showCustomDialog("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！");
+      return;
+    }
+    
+    // 獲取用戶 ID
+    const userId = document.getElementById('userId').value;
+    
+    // 檢查此用戶是否已經提交過，並提供重置選項
+    if (checkPreviousSubmission(userId)) {
+      showCustomDialog('系統顯示您之前已經提交過會員資料。如果您確定需要重新提交，請點擊"確定"。').then(retry => {
+        if (retry) {
+          // 用戶確認要重新提交，清除之前的記錄
+          clearSubmissionRecord(userId);
+          console.log('用戶選擇重新提交，已清除之前的提交記錄');
+          submitForm();
+        } else {
+          disableSubmitButton();
+        }
+      });
+      return;
+    }
+
+    submitForm();
+
+    // 提交表單的實際函數
+    async function submitForm() {
+      const data = {
+        formType: "membership",
+        lineUID: userId,
+        name: document.getElementById('name').value,
+        nickName: document.getElementById('nickname').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+        birthday: document.getElementById('birthday').value,
+        city: document.getElementById('city').value,
+        district: document.getElementById('district').value,
+        plates0: formatLicensePlate(document.getElementById('plate0').value.trim()),
+        plates1: formatLicensePlate(document.getElementById('plate1').value.trim()),
+        plates2: formatLicensePlate(document.getElementById('plate2').value.trim())
+      };
+
+      if (!data.plates0) {
+        showCustomDialog("請至少填寫一個車牌");
+        return;
+      }
+      
+      // 標記為正在提交
+      hasSubmitted = true;
+      // 禁用提交按鈕，防止重複點擊
+      disableSubmitButton();
+
+      try {
+        console.log('開始發送表單數據...');
+        console.log('發送數據:', data);
+        
+        // Google Apps Script 的網址
+        const gasUrl = "https://script.google.com/macros/s/AKfycbyq1yGrR59U8a9_OXt_Z3AToLvKYKzXsIf1Ssyl-cJxtyiZI4ZCfkyRzn2NzxaUAr_s8w/exec";
+
+        // 優先使用 GET 請求發送數據以獲取正確響應
+        try {
+          // 創建 URLSearchParams 對象
+          const params = new URLSearchParams();
+          // 添加 action 參數
+          params.append('action', 'addMember');
+          // 添加所有表單數據
+          for (const key in data) {
+            params.append(key, data[key]);
+          }
+          // 構建完整的 URL
+          const getUrl = `${gasUrl}?${params.toString()}`;
+          
+          // 檢查 URL 長度
+          if (getUrl.length > 2000) {
+            console.warn('警告: URL 太長，可能超過限制。長度:', getUrl.length);
+          }
+          
+          console.log('發送 GET 請求...');
+          // 發送 GET 請求
+          const response = await fetch(getUrl);
+          const responseText = await response.text();
+          console.log('GET 請求完成，完整響應:', responseText);
+          
+          if (responseText && responseText.trim()) {
+            try {
+              // 嘗試解析 JSON
+              const jsonResponse = JSON.parse(responseText);
+              console.log('GET 響應解析為 JSON:', jsonResponse);
+              
+              // 檢查是否是重複提交
+              if (jsonResponse.error === 'duplicate_entry') {
+                showCustomDialog('您已經是我們的會員，無需重複註冊！', "會員提示");
+                disableSubmitButton();
+                const submitButton = document.querySelector('.btn-submit');
+                submitButton.textContent = '您已是會員';
+                recordSubmission(userId);
+                return;
+              }
+              
+              // 記錄響應中的會員編號
+              if (jsonResponse.memberNumber) {
+                console.log('找到會員編號:', jsonResponse.memberNumber);
+                showMemberNumberDialog(jsonResponse.memberNumber);
+                recordSubmission(userId);
+                return;
+              } else if (jsonResponse.data && jsonResponse.data[1]) {
+                console.log('從data陣列找到會員編號:', jsonResponse.data[1]);
+                showMemberNumberDialog(jsonResponse.data[1]);
+                recordSubmission(userId);
+                return;
+              }
+              
+              // 沒有找到會員編號但提交成功
+              if (jsonResponse.status === 'success') {
+                recordSubmission(userId);
+                showCustomDialog("恭喜您已經成功登錄成會員<br><br>謝謝！", "註冊成功");
+                return;
+              }
+            } catch (e) {
+              console.error('無法解析 JSON:', e);
+            }
+          }
+          
+          // 如果GET請求沒有返回有效數據，繼續嘗試POST
+        } catch (error) {
+          console.error('GET 請求失敗:', error);
+        }
+        
+        // 備用方法: 使用 POST 請求
+        try {
+          console.log('嘗試使用POST方法...');
+          const response = await fetch(gasUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'addMember',
+              ...data
+            })
+          });
+          
+          if (response.ok) {
+            const responseText = await response.text();
+            console.log('POST 請求完成，響應:', responseText);
+            
+            try {
+              const jsonResponse = JSON.parse(responseText);
+              if (jsonResponse.memberNumber) {
+                showMemberNumberDialog(jsonResponse.memberNumber);
+              } else {
+                showCustomDialog("恭喜您已經成功登錄成會員<br><br>謝謝！", "註冊成功");
+              }
+              recordSubmission(userId);
+              return;
+            } catch (e) {
+              console.error('解析POST響應失敗:', e);
+            }
+          }
+        } catch (error) {
+          console.error('POST 請求失敗:', error);
+        }
+
+        // 如果前兩種方法都失敗，使用 iframe 方法
+        try {
+          console.log('使用 iframe 方法發送數據');
+          
+          // 創建隱藏的 iframe
+          let iframe = document.getElementById("hidden-iframe");
+          if (!iframe) {
+            iframe = document.createElement("iframe");
+            iframe.id = "hidden-iframe";
+            iframe.name = "hidden-iframe";
+            iframe.style.display = "none";
+            document.body.appendChild(iframe);
+          }
+          
+          // 創建 URLSearchParams 對象
+          const params = new URLSearchParams();
+          // 添加 action 參數
+          params.append('action', 'addMember');
+          // 添加所有表單數據
+          for (const key in data) {
+            params.append(key, data[key]);
+          }
+          // 構建完整的 URL
+          const iframeUrl = `${gasUrl}?${params.toString()}`;
+          
+          // 檢查 URL 長度
+          if (iframeUrl.length > 2000) {
+            console.warn('警告: URL 太長，可能超過限制。長度:', iframeUrl.length);
+          }
+          
+          // 設置 iframe 加載完成的處理程序
+          iframe.onload = function() {
+            console.log('iframe 加載完成');
+            recordSubmission(userId);
+            showCustomDialog("恭喜您已經成功登錄成會員<br><br>謝謝！", "註冊成功");
+          };
+          
+          // 設置 iframe 的 src 屬性以加載 URL
+          iframe.src = iframeUrl;
+          
+        } catch (error) {
+          console.error('iframe 方法失敗:', error);
+          showCustomDialog("提交表單時出錯，請重試");
+        }
+        
+      } catch (error) {
+        console.error('發送表單數據失敗:', error);
+        showCustomDialog("提交表單時出錯，請重試");
+        
+        // 重置提交狀態，允許再次嘗試
+        hasSubmitted = false;
+        const submitButton = document.querySelector('.btn-submit');
+        submitButton.disabled = false;
+        submitButton.textContent = '送出資料';
+        submitButton.style.backgroundColor = '#00c300';
+      }
+    }
+  });
+
+  // 初始化頁面時加載城市和地區選項
+  document.addEventListener('DOMContentLoaded', () => {
+    initCityDistrict();
+    initLiff();
+  });
+
+  async function initLiff() {
+    try {
+      console.log('開始初始化 LIFF...');
+      
+      // 直接使用正確的 LIFF ID
+      let liffId = "2007134780-E8ynMDnW";
+      console.log('使用 LIFF ID:', liffId);
+      
+      // 初始化 LIFF
+      await liff.init({ liffId: liffId });
+      
+      console.log('LIFF 初始化成功');
+      liffInitialized = true;
+      
+      if (!liff.isLoggedIn()) {
+        console.log('用戶未登入，開始登入流程...');
+        await liff.login();
+        console.log('用戶登入成功');
+      }
+      
+      try {
+        const profile = await liff.getProfile();
+        console.log('獲取用戶資料成功:', profile);
+        const userId = profile.userId;
+        document.getElementById('userId').value = userId;
+        
+        // 添加一個參數檢查，如果URL中包含clear=true，則清除該用戶的提交記錄
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('clear') === 'true') {
+          clearSubmissionRecord(userId);
+          console.log('根據URL參數清除了用戶提交記錄');
+        }
+        
+        // 如果URL中包含clearAll=true，則清除所有用戶的提交記錄
+        if (urlParams.get('clearAll') === 'true') {
+          clearAllSubmissionRecords();
+          console.log('根據URL參數清除了所有用戶提交記錄');
+        }
+        
+      } catch (profileError) {
+        console.error('獲取用戶資料失敗:', profileError);
+      }
+    } catch (error) {
+      console.error('LIFF 初始化失敗:', error);
+    }
+  }
+</script>
+</body>
+</html>
