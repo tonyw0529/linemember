@@ -30,6 +30,54 @@
     .btn-submit:hover {
       background-color: #00a000;
     }
+    
+    /* 自定義對話框樣式 */
+    .custom-dialog {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .dialog-content {
+      background-color: #222;
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 90%;
+      width: 320px;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    
+    .dialog-title {
+      background-color: #6b236b;
+      color: white;
+      padding: 10px;
+      margin: -20px -20px 15px -20px;
+      border-radius: 10px 10px 0 0;
+    }
+    
+    .dialog-message {
+      margin-bottom: 20px;
+      font-size: 16px;
+    }
+    
+    .dialog-button {
+      background-color: #ff97e9;
+      color: #000;
+      padding: 8px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -80,6 +128,15 @@
         </div>
         <button type="submit" class="btn btn-submit w-100 py-2">送出資料</button>
       </form>
+    </div>
+  </div>
+
+  <!-- 自定義對話框 -->
+  <div class="custom-dialog" id="customDialog">
+    <div class="dialog-content">
+      <div class="dialog-title" id="dialogTitle">提示</div>
+      <div class="dialog-message" id="dialogMessage"></div>
+      <button class="dialog-button" id="dialogButton">確定</button>
     </div>
   </div>
 
@@ -352,6 +409,37 @@
     initLiff();
   }
 
+  // 顯示自定義對話框
+  function showCustomDialog(message, title = "提示") {
+    const dialog = document.getElementById('customDialog');
+    const dialogMessage = document.getElementById('dialogMessage');
+    const dialogTitle = document.getElementById('dialogTitle');
+    const dialogButton = document.getElementById('dialogButton');
+    
+    dialogMessage.innerHTML = message;
+    dialogTitle.textContent = title;
+    dialog.style.display = 'flex';
+    
+    // 點擊確定按鈕關閉對話框
+    dialogButton.onclick = function() {
+      dialog.style.display = 'none';
+    };
+    
+    // 點擊背景也可關閉對話框
+    dialog.onclick = function(event) {
+      if (event.target === dialog) {
+        dialog.style.display = 'none';
+      }
+    };
+    
+    return new Promise(resolve => {
+      dialogButton.onclick = function() {
+        dialog.style.display = 'none';
+        resolve(true);
+      };
+    });
+  }
+
   // 用於處理表單提交響應，統一處理各種情況
   function handleSubmissionResponse(response) {
     try {
@@ -360,18 +448,20 @@
       if (typeof response === 'string') {
         try {
           result = JSON.parse(response);
+          console.log('解析的JSON響應:', result);
         } catch (e) {
           // 不是有效的 JSON，使用原始響應
-          console.log('響應不是有效的 JSON，使用原始值');
+          console.log('響應不是有效的 JSON，使用原始值:', response);
           result = { success: true };
         }
       } else {
         result = response;
+        console.log('非字符串響應:', result);
       }
 
       // 檢查是否是重複提交
       if (result.error === 'duplicate_entry') {
-        alert('您已經是我們的會員，無需重複註冊！');
+        showCustomDialog('您已經是我們的會員，無需重複註冊！');
         disableSubmitButton();
         const submitButton = document.querySelector('.btn-submit');
         submitButton.textContent = '您已是會員';
@@ -384,10 +474,17 @@
 
       // 獲取會員編號
       let memberNumber = '';
+      console.log('檢查會員編號...');
       if (result.memberNumber) {
         memberNumber = result.memberNumber;
+        console.log('從result.memberNumber獲取到會員編號:', memberNumber);
       } else if (result.data && result.data[1]) {
         memberNumber = result.data[1]; // 會員編號在陣列的第二個位置
+        console.log('從result.data[1]獲取到會員編號:', memberNumber);
+      } else if (result.status === 'success' && result.data && Array.isArray(result.data)) {
+        // 嘗試從其他可能的位置提取
+        memberNumber = result.data[1] || '';
+        console.log('嘗試從其他位置獲取會員編號:', memberNumber);
       }
 
       // 記錄此用戶已經提交過
@@ -397,31 +494,31 @@
       // 顯示成功提示，包含會員編號
       let successMessage = "恭喜您已經成功登錄成會員";
       if (memberNumber) {
-        successMessage += "，您的會員編號是：" + memberNumber;
+        successMessage += "<br><br>您的會員編號是：<strong style='color:#ff97e9;font-size:18px'>" + memberNumber + "</strong>";
       }
-      successMessage += " 謝謝！";
+      successMessage += "<br><br>謝謝！";
       
-      alert(successMessage);
-      
-      // 添加緩衝時間後再關閉窗口
-      if (liffInitialized && liff.isInClient()) {
-        console.log('將在5秒後關閉LIFF窗口，給用戶時間查看訊息');
-        // 使用緩衝時間延遲關閉窗口
-        setTimeout(() => {
-          console.log('緩衝時間結束，關閉LIFF窗口');
-          liff.closeWindow();
-        }, SUBMIT_COOLDOWN);
-      }
+      showCustomDialog(successMessage, "註冊成功").then(() => {
+        // 對話框關閉後的操作
+        // 添加緩衝時間後再關閉窗口
+        if (liffInitialized && liff.isInClient()) {
+          console.log('將在3秒後關閉LIFF窗口');
+          setTimeout(() => {
+            console.log('緩衝時間結束，關閉LIFF窗口');
+            liff.closeWindow();
+          }, 3000);
+        }
+      });
     } catch (e) {
       console.error('處理提交響應時出錯:', e);
-      alert("恭喜您已經成功登錄成會員 謝謝！");
-      
-      // 添加緩衝時間後再關閉窗口
-      if (liffInitialized && liff.isInClient()) {
-        setTimeout(() => {
-          liff.closeWindow();
-        }, SUBMIT_COOLDOWN);
-      }
+      showCustomDialog("恭喜您已經成功登錄成會員<br><br>謝謝！", "註冊成功").then(() => {
+        // 添加緩衝時間後再關閉窗口
+        if (liffInitialized && liff.isInClient()) {
+          setTimeout(() => {
+            liff.closeWindow();
+          }, 3000);
+        }
+      });
     }
   }
 
@@ -430,20 +527,20 @@
     
     // 檢查是否正在提交或已經提交過
     if (hasSubmitted) {
-      alert('您已經提交過表單，請勿重複提交');
+      showCustomDialog('您已經提交過表單，請勿重複提交');
       return;
     }
     
     // 檢查 LIFF 是否已初始化，如果沒有初始化則提示用戶
     if (liffInitialized && !liff.isLoggedIn()) {
-      alert('請先登入 LINE 帳號');
+      showCustomDialog('請先登入 LINE 帳號');
       return;
     }
 
     // 檢查年齡
     const birthDate = document.getElementById('birthday').value;
     if (!isAtLeast18YearsOld(birthDate)) {
-      alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！");
+      showCustomDialog("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！");
       return;
     }
     
@@ -452,152 +549,159 @@
     
     // 檢查此用戶是否已經提交過，並提供重置選項
     if (checkPreviousSubmission(userId)) {
-      const retry = confirm('系統顯示您之前已經提交過會員資料。如果您確定需要重新提交，請點擊"確定"。');
-      if (retry) {
-        // 用戶確認要重新提交，清除之前的記錄
-        clearSubmissionRecord(userId);
-        console.log('用戶選擇重新提交，已清除之前的提交記錄');
-      } else {
-        disableSubmitButton();
-        return;
-      }
-    }
-
-    const data = {
-      formType: "membership",
-      lineUID: userId,
-      name: document.getElementById('name').value,
-      nickName: document.getElementById('nickname').value,
-      phone: document.getElementById('phone').value,
-      email: document.getElementById('email').value,
-      birthday: document.getElementById('birthday').value,
-      city: document.getElementById('city').value,
-      district: document.getElementById('district').value,
-      plates0: formatLicensePlate(document.getElementById('plate0').value.trim()),
-      plates1: formatLicensePlate(document.getElementById('plate1').value.trim()),
-      plates2: formatLicensePlate(document.getElementById('plate2').value.trim())
-    };
-
-    if (!data.plates0) {
-      alert("請至少填寫一個車牌");
+      showCustomDialog('系統顯示您之前已經提交過會員資料。如果您確定需要重新提交，請點擊"確定"。').then(retry => {
+        if (retry) {
+          // 用戶確認要重新提交，清除之前的記錄
+          clearSubmissionRecord(userId);
+          console.log('用戶選擇重新提交，已清除之前的提交記錄');
+          submitForm();
+        } else {
+          disableSubmitButton();
+        }
+      });
       return;
     }
-    
-    // 標記為正在提交
-    hasSubmitted = true;
-    // 禁用提交按鈕，防止重複點擊
-    disableSubmitButton();
 
-    try {
-      console.log('開始發送表單數據...');
-      console.log('發送數據:', data);
-      
-      // Google Apps Script 的網址
-      const gasUrl = "https://script.google.com/macros/s/AKfycbyq1yGrR59U8a9_OXt_Z3AToLvKYKzXsIf1Ssyl-cJxtyiZI4ZCfkyRzn2NzxaUAr_s8w/exec";
-      
-      // 方法1: 使用 POST 請求發送數據
-      try {
-        const response = await fetch(gasUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'addMember',
-            ...data
-          }),
-          mode: 'no-cors'
-        });
-        
-        console.log('POST 請求完成，狀態:', response);
-        handleSubmissionResponse(response);
+    submitForm();
+
+    // 提交表單的實際函數
+    async function submitForm() {
+      const data = {
+        formType: "membership",
+        lineUID: userId,
+        name: document.getElementById('name').value,
+        nickName: document.getElementById('nickname').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+        birthday: document.getElementById('birthday').value,
+        city: document.getElementById('city').value,
+        district: document.getElementById('district').value,
+        plates0: formatLicensePlate(document.getElementById('plate0').value.trim()),
+        plates1: formatLicensePlate(document.getElementById('plate1').value.trim()),
+        plates2: formatLicensePlate(document.getElementById('plate2').value.trim())
+      };
+
+      if (!data.plates0) {
+        showCustomDialog("請至少填寫一個車牌");
         return;
-      } catch (error) {
-        console.error('POST 請求失敗:', error);
       }
+      
+      // 標記為正在提交
+      hasSubmitted = true;
+      // 禁用提交按鈕，防止重複點擊
+      disableSubmitButton();
 
-      // 方法2: 使用 GET 請求發送數據
       try {
-        // 創建 URLSearchParams 對象
-        const params = new URLSearchParams();
-        // 添加 action 參數
-        params.append('action', 'addMember');
-        // 添加所有表單數據
-        for (const key in data) {
-          params.append(key, data[key]);
-        }
-        // 構建完整的 URL
-        const getUrl = `${gasUrl}?${params.toString()}`;
+        console.log('開始發送表單數據...');
+        console.log('發送數據:', data);
         
-        // 檢查 URL 長度
-        if (getUrl.length > 2000) {
-          console.warn('警告: URL 太長，可能超過限制。長度:', getUrl.length);
-        }
+        // Google Apps Script 的網址
+        const gasUrl = "https://script.google.com/macros/s/AKfycbyq1yGrR59U8a9_OXt_Z3AToLvKYKzXsIf1Ssyl-cJxtyiZI4ZCfkyRzn2NzxaUAr_s8w/exec";
         
-        // 發送 GET 請求
-        const response = await fetch(getUrl);
-        const responseText = await response.text();
-        console.log('GET 請求完成，響應:', responseText);
-        handleSubmissionResponse(responseText);
-        return;
-      } catch (error) {
-        console.error('GET 請求失敗:', error);
-      }
+        // 方法1: 使用 POST 請求發送數據
+        try {
+          const response = await fetch(gasUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'addMember',
+              ...data
+            }),
+            mode: 'no-cors'
+          });
+          
+          console.log('POST 請求完成，狀態:', response);
+          handleSubmissionResponse(response);
+          return;
+        } catch (error) {
+          console.error('POST 請求失敗:', error);
+        }
 
-      // 方法3: 使用 iframe 發送數據
-      try {
-        console.log('使用 iframe 方法發送數據');
-        
-        // 創建隱藏的 iframe
-        let iframe = document.getElementById("hidden-iframe");
-        if (!iframe) {
-          iframe = document.createElement("iframe");
-          iframe.id = "hidden-iframe";
-          iframe.name = "hidden-iframe";
-          iframe.style.display = "none";
-          document.body.appendChild(iframe);
+        // 方法2: 使用 GET 請求發送數據
+        try {
+          // 創建 URLSearchParams 對象
+          const params = new URLSearchParams();
+          // 添加 action 參數
+          params.append('action', 'addMember');
+          // 添加所有表單數據
+          for (const key in data) {
+            params.append(key, data[key]);
+          }
+          // 構建完整的 URL
+          const getUrl = `${gasUrl}?${params.toString()}`;
+          
+          // 檢查 URL 長度
+          if (getUrl.length > 2000) {
+            console.warn('警告: URL 太長，可能超過限制。長度:', getUrl.length);
+          }
+          
+          // 發送 GET 請求
+          const response = await fetch(getUrl);
+          const responseText = await response.text();
+          console.log('GET 請求完成，響應:', responseText);
+          handleSubmissionResponse(responseText);
+          return;
+        } catch (error) {
+          console.error('GET 請求失敗:', error);
         }
-        
-        // 創建 URLSearchParams 對象
-        const params = new URLSearchParams();
-        // 添加 action 參數
-        params.append('action', 'addMember');
-        // 添加所有表單數據
-        for (const key in data) {
-          params.append(key, data[key]);
+
+        // 方法3: 使用 iframe 發送數據
+        try {
+          console.log('使用 iframe 方法發送數據');
+          
+          // 創建隱藏的 iframe
+          let iframe = document.getElementById("hidden-iframe");
+          if (!iframe) {
+            iframe = document.createElement("iframe");
+            iframe.id = "hidden-iframe";
+            iframe.name = "hidden-iframe";
+            iframe.style.display = "none";
+            document.body.appendChild(iframe);
+          }
+          
+          // 創建 URLSearchParams 對象
+          const params = new URLSearchParams();
+          // 添加 action 參數
+          params.append('action', 'addMember');
+          // 添加所有表單數據
+          for (const key in data) {
+            params.append(key, data[key]);
+          }
+          // 構建完整的 URL
+          const iframeUrl = `${gasUrl}?${params.toString()}`;
+          
+          // 檢查 URL 長度
+          if (iframeUrl.length > 2000) {
+            console.warn('警告: URL 太長，可能超過限制。長度:', iframeUrl.length);
+          }
+          
+          // 設置 iframe 加載完成的處理程序
+          iframe.onload = function() {
+            console.log('iframe 加載完成');
+            handleSubmissionResponse({ success: true });
+          };
+          
+          // 設置 iframe 的 src 屬性以加載 URL
+          iframe.src = iframeUrl;
+          
+        } catch (error) {
+          console.error('iframe 方法失敗:', error);
+          alert("提交表單時出錯，請重試");
         }
-        // 構建完整的 URL
-        const iframeUrl = `${gasUrl}?${params.toString()}`;
-        
-        // 檢查 URL 長度
-        if (iframeUrl.length > 2000) {
-          console.warn('警告: URL 太長，可能超過限制。長度:', iframeUrl.length);
-        }
-        
-        // 設置 iframe 加載完成的處理程序
-        iframe.onload = function() {
-          console.log('iframe 加載完成');
-          handleSubmissionResponse({ success: true });
-        };
-        
-        // 設置 iframe 的 src 屬性以加載 URL
-        iframe.src = iframeUrl;
         
       } catch (error) {
-        console.error('iframe 方法失敗:', error);
+        console.error('發送表單數據失敗:', error);
         alert("提交表單時出錯，請重試");
+        
+        // 重置提交狀態，允許再次嘗試
+        hasSubmitted = false;
+        const submitButton = document.querySelector('.btn-submit');
+        submitButton.disabled = false;
+        submitButton.textContent = '送出資料';
+        submitButton.style.backgroundColor = '#00c300';
       }
-      
-    } catch (error) {
-      console.error('發送表單數據失敗:', error);
-      alert("提交表單時出錯，請重試");
-      
-      // 重置提交狀態，允許再次嘗試
-      hasSubmitted = false;
-      const submitButton = document.querySelector('.btn-submit');
-      submitButton.disabled = false;
-      submitButton.textContent = '送出資料';
-      submitButton.style.backgroundColor = '#00c300';
     }
   });
 </script>
