@@ -111,6 +111,63 @@
 
   // 全局變量，用於標記 LIFF 是否初始化成功
   let liffInitialized = false;
+  // 用於存儲是否已經提交過表單
+  let hasSubmitted = false;
+  // 表單提交後的冷卻時間（毫秒）
+  const SUBMIT_COOLDOWN = 5000;
+
+  // 從 localStorage 中檢查用戶是否已經提交過表單
+  function checkPreviousSubmission(userId) {
+    try {
+      // 嘗試從 localStorage 獲取已提交數據
+      const submittedData = localStorage.getItem('submittedUserIds');
+      if (submittedData) {
+        const submittedUsers = JSON.parse(submittedData);
+        // 檢查當前用戶是否在已提交列表中
+        return submittedUsers.includes(userId);
+      }
+    } catch (e) {
+      console.error('檢查提交歷史記錄時出錯:', e);
+    }
+    return false;
+  }
+
+  // 記錄用戶已提交表單
+  function recordSubmission(userId) {
+    try {
+      let submittedUsers = [];
+      const submittedData = localStorage.getItem('submittedUserIds');
+      
+      if (submittedData) {
+        submittedUsers = JSON.parse(submittedData);
+      }
+      
+      // 只有在列表中沒有該用戶時才添加
+      if (!submittedUsers.includes(userId)) {
+        submittedUsers.push(userId);
+        localStorage.setItem('submittedUserIds', JSON.stringify(submittedUsers));
+      }
+    } catch (e) {
+      console.error('記錄提交歷史時出錯:', e);
+    }
+  }
+
+  // 禁用提交按鈕
+  function disableSubmitButton() {
+    const submitButton = document.querySelector('.btn-submit');
+    submitButton.disabled = true;
+    submitButton.textContent = '已送出資料';
+    submitButton.style.backgroundColor = '#888';
+    
+    // 可選: 可以在一段時間後恢復按鈕
+    /*
+    setTimeout(() => {
+      submitButton.disabled = false;
+      submitButton.textContent = '送出資料';
+      submitButton.style.backgroundColor = '#00c300';
+    }, SUBMIT_COOLDOWN);
+    */
+  }
 
   function initCityDistrict() {
     const citySelect = document.getElementById('city');
@@ -253,6 +310,12 @@
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    // 檢查是否正在提交或已經提交過
+    if (hasSubmitted) {
+      alert('您已經提交過表單，請勿重複提交');
+      return;
+    }
+    
     // 檢查 LIFF 是否已初始化，如果沒有初始化則提示用戶
     if (liffInitialized && !liff.isLoggedIn()) {
       alert('請先登入 LINE 帳號');
@@ -265,10 +328,20 @@
       alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！");
       return;
     }
+    
+    // 獲取用戶 ID
+    const userId = document.getElementById('userId').value;
+    
+    // 檢查此用戶是否已經提交過
+    if (checkPreviousSubmission(userId)) {
+      alert('您之前已經提交過會員資料，無需重複提交');
+      disableSubmitButton();
+      return;
+    }
 
     const data = {
       formType: "membership",
-      lineUID: document.getElementById('userId').value,
+      lineUID: userId,
       name: document.getElementById('name').value,
       nickName: document.getElementById('nickname').value,
       phone: document.getElementById('phone').value,
@@ -285,6 +358,11 @@
       alert("請至少填寫一個車牌");
       return;
     }
+    
+    // 標記為正在提交
+    hasSubmitted = true;
+    // 禁用提交按鈕，防止重複點擊
+    disableSubmitButton();
 
     try {
       console.log('開始發送表單數據...');
@@ -307,6 +385,8 @@
         });
         
         console.log('POST 請求完成，狀態:', response);
+        // 記錄此用戶已經提交過
+        recordSubmission(userId);  
         alert("資料已送出！");
         if (liffInitialized && liff.isInClient()) {
           liff.closeWindow();
@@ -345,6 +425,8 @@
         });
         
         console.log('GET 請求完成，狀態:', response);
+        // 記錄此用戶已經提交過
+        recordSubmission(userId);
         alert("資料已送出！");
         if (liffInitialized && liff.isInClient()) {
           liff.closeWindow();
@@ -383,6 +465,8 @@
       // 設置 iframe 加載完成的處理程序
       iframe.onload = function() {
         console.log('iframe 加載完成');
+        // 記錄此用戶已經提交過
+        recordSubmission(userId);
         alert("資料已送出！");
         
         // 安全地關閉 LIFF 窗口
