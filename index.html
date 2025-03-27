@@ -387,7 +387,7 @@
         console.log('POST 請求完成，狀態:', response);
         // 記錄此用戶已經提交過
         recordSubmission(userId);  
-        alert("資料已送出！");
+        alert("恭喜您已經成功登錄成會員 謝謝！");
         if (liffInitialized && liff.isInClient()) {
           liff.closeWindow();
         }
@@ -427,7 +427,7 @@
         console.log('GET 請求完成，狀態:', response);
         // 記錄此用戶已經提交過
         recordSubmission(userId);
-        alert("資料已送出！");
+        alert("恭喜您已經成功登錄成會員 謝謝！");
         if (liffInitialized && liff.isInClient()) {
           liff.closeWindow();
         }
@@ -467,7 +467,7 @@
         console.log('iframe 加載完成');
         // 記錄此用戶已經提交過
         recordSubmission(userId);
-        alert("資料已送出！");
+        alert("恭喜您已經成功登錄成會員 謝謝！");
         
         // 安全地關閉 LIFF 窗口
         if (liffInitialized && liff.isInClient()) {
