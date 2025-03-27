@@ -295,23 +295,57 @@
       form.method = 'POST';
       form.action = url;
       form.target = 'submit_frame';
+      form.enctype = 'application/x-www-form-urlencoded';  // 明確指定表單編碼
       form.style.display = 'none';
       
-      // 添加數據到表單
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'data';
-      input.value = JSON.stringify(modifiedData);
-      form.appendChild(input);
+      // 逐個添加數據欄位
+      Object.entries(modifiedData).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      });
       
-      // 添加表單到文檔並提交
+      // 添加認證標記
+      const authInput = document.createElement('input');
+      authInput.type = 'hidden';
+      authInput.name = 'auth';
+      authInput.value = 'tony@genwintech.com';
+      form.appendChild(authInput);
+      
+      // 添加表單到文檔
       document.body.appendChild(form);
       
       // 設置 iframe 加載完成的處理程序
       iframe.onload = function() {
         console.log('提交完成');
-        alert("資料已送出！");
-        if (liffInitialized) liff.closeWindow();
+        
+        try {
+          // 嘗試讀取 iframe 的內容
+          let response = '操作成功';
+          try {
+            // 嘗試讀取 iframe 內容，但可能會因跨域而失敗
+            const iframeContent = iframe.contentDocument || iframe.contentWindow.document;
+            if (iframeContent) {
+              response = iframeContent.body.textContent || '操作成功';
+            }
+          } catch (e) {
+            console.log('無法讀取 iframe 內容 (這是正常的):', e);
+          }
+          
+          alert("資料已送出！" + response);
+          
+          // 安全地關閉 LIFF 窗口
+          if (liffInitialized && liff.isInClient()) {
+            setTimeout(() => {
+              liff.closeWindow();
+            }, 1000);
+          }
+        } catch (frameError) {
+          console.error('處理 iframe 回應時出錯:', frameError);
+          alert("資料已提交，但無法確認處理結果");
+        }
         
         // 清理
         setTimeout(() => {
