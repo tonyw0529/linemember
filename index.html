@@ -170,24 +170,12 @@
     try {
       console.log('開始初始化 LIFF...');
       
-      // 嘗試使用之前的 LIFF ID
-      let liffId = "2007107369-9mWokDGX";
-      console.log('嘗試使用 LIFF ID:', liffId);
+      // 直接使用正確的 LIFF ID
+      let liffId = "2007134780-E8ynMDnW";
+      console.log('使用 LIFF ID:', liffId);
       
-      try {
-        await liff.init({ liffId: liffId });
-      } catch (error) {
-        if (error.message === 'LiffId is not found.') {
-          // 第一個 ID 失敗，嘗試第二個
-          console.log('第一個 LIFF ID 不存在，嘗試替代 ID');
-          liffId = "2007134780-E8ynMDnW";
-          console.log('嘗試使用替代 LIFF ID:', liffId);
-          await liff.init({ liffId: liffId });
-        } else {
-          // 其他錯誤，直接拋出
-          throw error;
-        }
-      }
+      // 初始化 LIFF
+      await liff.init({ liffId: liffId });
       
       console.log('LIFF 初始化成功');
       liffInitialized = true;
@@ -198,9 +186,15 @@
         console.log('用戶登入成功');
       }
       
-      const profile = await liff.getProfile();
-      console.log('獲取用戶資料成功:', profile);
-      document.getElementById('userId').value = profile.userId;
+      try {
+        const profile = await liff.getProfile();
+        console.log('獲取用戶資料成功:', profile);
+        document.getElementById('userId').value = profile.userId;
+      } catch (profileError) {
+        console.error('獲取用戶資料失敗:', profileError);
+        // 即使獲取用戶資料失敗，也繼續初始化其他部分
+        document.getElementById('userId').value = 'profile_error_' + Math.random().toString(36).substring(2, 15);
+      }
       
       initCityDistrict();
       initBirthdayLimit();
@@ -280,130 +274,64 @@
       console.log('開始發送表單數據...');
       console.log('發送數據:', data);
       
-      // 備用服務器列表
-      const serverUrls = [
-        "https://proxy-server-xr4v2vbiba-de.a.run.app",
-        "https://proxy-xr4v2vbiba-de.a.run.app/proxy",
-        "https://proxy-server-xr4v2vbiba-de.a.run.app/api/submit"
-      ];
+      // 只嘗試最可能成功的方法
+      const url = "https://proxy-server-xr4v2vbiba-de.a.run.app";
+      console.log(`嘗試連接 ${url}...`);
       
-      // 備用認證方式
-      const authMethods = [
-        { 
-          name: 'API Key', 
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-API-KEY': 'tony@genwintech.com'
-          }
-        },
-        { 
-          name: 'Bearer Token', 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer tony@genwintech.com'
-          }
-        },
-        { 
-          name: 'Basic Auth', 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': 'Basic ' + btoa('tony@genwintech.com:')
-          }
-        },
-        { 
-          name: 'Email in Data', 
-          headers: { 
-            'Content-Type': 'application/json'
-          }
+      // 創建一個修改過的數據副本
+      const modifiedData = {
+        ...data,
+        email: "tony@genwintech.com",  // 直接設置認證郵箱
+        _originalEmail: data.email     // 保存原始郵箱
+      };
+      
+      // 發送請求
+      const response = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify(modifiedData),
+        headers: { 
+          'Content-Type': 'application/json'
         }
-      ];
+      });
       
-      let lastError = null;
-      let success = false;
+      console.log('伺服器回應:', response.status, response.statusText);
       
-      // 保存用戶原始郵箱，用於 'Email in Data' 認證方式
-      const originalEmail = data.email;
-      
-      // 嘗試所有伺服器和認證方式的組合
-      for (const url of serverUrls) {
-        for (const auth of authMethods) {
-          if (success) break;
-          
-          try {
-            console.log(`嘗試連接 ${url} 使用 ${auth.name} 認證方式`);
-            
-            // 為 'Email in Data' 認證方式特殊處理
-            if (auth.name === 'Email in Data') {
-              // 暫時將數據中的email替換為認證郵箱
-              data.email = 'tony@genwintech.com';
-              data._originalEmail = originalEmail; // 保存原始郵箱
-            }
-            
-            const response = await fetch(url, {
-              method: 'POST',
-              body: JSON.stringify(data),
-              headers: auth.headers
-            });
-            
-            // 對於 'Email in Data' 認證方式，還原原始郵箱
-            if (auth.name === 'Email in Data') {
-              data.email = originalEmail;
-              delete data._originalEmail;
-            }
-            
-            console.log(`伺服器 ${url} 回應:`, response.status, response.statusText);
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error(`伺服器 ${url} 錯誤回應:`, errorText);
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const responseText = await response.text();
-            console.log(`伺服器 ${url} 原始回應:`, responseText);
-            
-            // 如果回應為空，視為成功
-            if (!responseText.trim()) {
-              console.log('伺服器回應為空，視為成功');
-              success = true;
-              alert("資料已送出！");
-              if (liffInitialized) liff.closeWindow();
-              break;
-            }
-            
-            let result;
-            try {
-              result = JSON.parse(responseText);
-              console.log(`伺服器 ${url} 處理結果:`, result);
-              
-              if (result.error) {
-                throw new Error(result.error);
-              }
-              
-              alert(result.message || "資料已送出！");
-              if (liffInitialized) liff.closeWindow();
-              success = true;
-              break;
-            } catch (jsonError) {
-              console.error('JSON解析錯誤:', jsonError);
-              // 如果不是JSON，也可能是成功的文本回應
-              alert("資料已送出！");
-              if (liffInitialized) liff.closeWindow();
-              success = true;
-              break;
-            }
-          } catch (err) {
-            console.error(`嘗試 ${url} 失敗:`, err);
-            lastError = err;
-          }
-        }
-        
-        if (success) break;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('伺服器錯誤回應:', errorText);
+        throw new Error(`伺服器錯誤! 狀態碼: ${response.status}`);
       }
       
-      if (!success) {
-        console.error("所有嘗試均失敗，最後錯誤:", lastError);
-        throw lastError || new Error("無法連接到伺服器");
+      let responseText = '';
+      try {
+        responseText = await response.text();
+        console.log('伺服器原始回應:', responseText);
+      } catch (textError) {
+        console.error('無法讀取回應文本:', textError);
+      }
+      
+      // 處理回應
+      if (!responseText.trim()) {
+        console.log('伺服器回應為空，視為成功');
+        alert("資料已送出！");
+        if (liffInitialized) liff.closeWindow();
+        return;
+      }
+      
+      try {
+        const result = JSON.parse(responseText);
+        console.log('處理結果:', result);
+        
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        
+        alert(result.message || "資料已送出！");
+        if (liffInitialized) liff.closeWindow();
+      } catch (jsonError) {
+        console.error('JSON解析錯誤:', jsonError);
+        alert("資料已送出！");
+        if (liffInitialized) liff.closeWindow();
       }
     } catch (err) {
       console.error("送出失敗：", err);
