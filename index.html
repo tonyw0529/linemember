@@ -337,22 +337,45 @@
         return;
       }
 
-      // 正常成功提交
+      // 獲取會員編號
+      let memberNumber = '';
+      if (result.memberNumber) {
+        memberNumber = result.memberNumber;
+      } else if (result.data && result.data[1]) {
+        memberNumber = result.data[1]; // 會員編號在陣列的第二個位置
+      }
+
       // 記錄此用戶已經提交過
       const userId = document.getElementById('userId').value;
-      recordSubmission(userId);  
-      alert("恭喜您已經成功登錄成會員 謝謝！");
+      recordSubmission(userId);
+
+      // 顯示成功提示，包含會員編號
+      let successMessage = "恭喜您已經成功登錄成會員";
+      if (memberNumber) {
+        successMessage += "，您的會員編號是：" + memberNumber;
+      }
+      successMessage += " 謝謝！";
       
-      // 關閉 LIFF 窗口（如果在 LIFF 環境中）
+      alert(successMessage);
+      
+      // 添加緩衝時間後再關閉窗口
       if (liffInitialized && liff.isInClient()) {
-        liff.closeWindow();
+        console.log('將在5秒後關閉LIFF窗口，給用戶時間查看訊息');
+        // 使用緩衝時間延遲關閉窗口
+        setTimeout(() => {
+          console.log('緩衝時間結束，關閉LIFF窗口');
+          liff.closeWindow();
+        }, SUBMIT_COOLDOWN);
       }
     } catch (e) {
       console.error('處理提交響應時出錯:', e);
       alert("恭喜您已經成功登錄成會員 謝謝！");
       
+      // 添加緩衝時間後再關閉窗口
       if (liffInitialized && liff.isInClient()) {
-        liff.closeWindow();
+        setTimeout(() => {
+          liff.closeWindow();
+        }, SUBMIT_COOLDOWN);
       }
     }
   }
