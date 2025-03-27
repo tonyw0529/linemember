@@ -139,6 +139,18 @@
       <button class="dialog-button" id="dialogButton">確定</button>
     </div>
   </div>
+  
+  <!-- 預覽對話框 -->
+  <div class="custom-dialog" id="previewDialog">
+    <div class="dialog-content" style="width: 85%; max-width: 480px;">
+      <div class="dialog-title">確認送出資料</div>
+      <div class="dialog-message" id="previewMessage" style="text-align: left; max-height: 70vh; overflow-y: auto;"></div>
+      <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+        <button class="dialog-button" id="editButton" style="background-color: #888;">返回修改</button>
+        <button class="dialog-button" id="confirmButton">確認送出</button>
+      </div>
+    </div>
+  </div>
 
 <script>
   const cityDistrictMap = {
@@ -350,6 +362,75 @@
     });
   }
 
+  // 顯示預覽對話框
+  function showPreviewDialog(formData) {
+    return new Promise((resolve) => {
+      const dialog = document.getElementById('previewDialog');
+      const previewMessage = document.getElementById('previewMessage');
+      const editButton = document.getElementById('editButton');
+      const confirmButton = document.getElementById('confirmButton');
+      
+      // 生成預覽內容HTML
+      let previewHTML = '<div style="padding: 5px;"><h5 style="margin-bottom: 15px;">請核對以下資料：</h5>';
+      
+      // 基本資料區塊
+      previewHTML += '<div style="background-color: #333; padding: 10px; border-radius: 5px; margin-bottom: 10px;">';
+      previewHTML += '<p style="margin: 5px 0;"><strong>姓名：</strong>' + formData.name + '</p>';
+      previewHTML += '<p style="margin: 5px 0;"><strong>暱稱：</strong>' + formData.nickName + '</p>';
+      previewHTML += '<p style="margin: 5px 0;"><strong>電話：</strong>' + formData.phone + '</p>';
+      previewHTML += '<p style="margin: 5px 0;"><strong>Email：</strong>' + formData.email + '</p>';
+      
+      // 格式化生日
+      const birthDate = new Date(formData.birthday);
+      const formattedBirthDate = `${birthDate.getFullYear()}年${birthDate.getMonth() + 1}月${birthDate.getDate()}日`;
+      previewHTML += '<p style="margin: 5px 0;"><strong>生日：</strong>' + formattedBirthDate + '</p>';
+      previewHTML += '</div>';
+      
+      // 地址區塊
+      previewHTML += '<div style="background-color: #333; padding: 10px; border-radius: 5px; margin-bottom: 10px;">';
+      previewHTML += '<p style="margin: 5px 0;"><strong>地址：</strong>' + formData.city + formData.district + '</p>';
+      previewHTML += '</div>';
+      
+      // 車牌區塊
+      previewHTML += '<div style="background-color: #333; padding: 10px; border-radius: 5px; margin-bottom: 10px;">';
+      previewHTML += '<p style="margin: 5px 0;"><strong>車牌1：</strong>' + formData.plates0 + '</p>';
+      if (formData.plates1) {
+        previewHTML += '<p style="margin: 5px 0;"><strong>車牌2：</strong>' + formData.plates1 + '</p>';
+      }
+      if (formData.plates2) {
+        previewHTML += '<p style="margin: 5px 0;"><strong>車牌3：</strong>' + formData.plates2 + '</p>';
+      }
+      previewHTML += '</div>';
+      
+      previewHTML += '</div>';
+      
+      // 設置預覽內容
+      previewMessage.innerHTML = previewHTML;
+      
+      // 顯示對話框
+      dialog.style.display = 'flex';
+      
+      // 返回修改
+      editButton.onclick = function() {
+        dialog.style.display = 'none';
+        resolve(false); // 不提交，返回修改
+      };
+      
+      // 確認提交
+      confirmButton.onclick = function() {
+        dialog.style.display = 'none';
+        resolve(true); // 確認提交
+      };
+      
+      // 點擊背景不可關閉
+      dialog.onclick = function(event) {
+        if (event.target === dialog) {
+          // 不執行任何操作，必須點擊按鈕
+        }
+      };
+    });
+  }
+
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -382,7 +463,7 @@
           // 用戶確認要重新提交，清除之前的記錄
           clearSubmissionRecord(userId);
           console.log('用戶選擇重新提交，已清除之前的提交記錄');
-          submitForm();
+          previewAndSubmitForm();
         } else {
           disableSubmitButton();
         }
@@ -390,10 +471,10 @@
       return;
     }
 
-    submitForm();
+    previewAndSubmitForm();
 
-    // 提交表單的實際函數
-    async function submitForm() {
+    // 預覽和提交表單
+    async function previewAndSubmitForm() {
       const data = {
         formType: "membership",
         lineUID: userId,
@@ -414,11 +495,20 @@
         return;
       }
       
+      // 顯示預覽對話框
+      const shouldSubmit = await showPreviewDialog(data);
+      
+      // 如果用戶選擇返回修改，不提交表單
+      if (!shouldSubmit) {
+        return;
+      }
+      
       // 標記為正在提交
       hasSubmitted = true;
       // 禁用提交按鈕，防止重複點擊
       disableSubmitButton();
 
+      // 以下是原本的提交邏輯
       try {
         console.log('開始發送表單數據...');
         console.log('發送數據:', data);
