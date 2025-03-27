@@ -133,30 +133,34 @@
   function initBirthdayLimit() {
     const birthdayInput = document.getElementById('birthday');
     const today = new Date();
+    
+    // 設置最大日期為18年前的今天
     const yyyy = today.getFullYear() - 18;
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
     const limitDate = `${yyyy}-${mm}-${dd}`;
     birthdayInput.max = limitDate;
     
-    birthdayInput.addEventListener('input', () => {
-      const selected = new Date(birthdayInput.value);
-      const today = new Date();
-      
-      // 計算年齡
-      let age = today.getFullYear() - selected.getFullYear();
-      const monthDiff = today.getMonth() - selected.getMonth();
-      
-      // 如果生日還沒到，年齡減1
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < selected.getDate())) {
-        age--;
-      }
-      
-      if (age < 18) {
-        alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！");
-        birthdayInput.value = "";
-      }
-    });
+    // 這裡不再添加input事件監聽器，改為在表單提交時檢查
+  }
+
+  // 檢查年齡是否滿18歲
+  function isAtLeast18YearsOld(birthDate) {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    
+    // 計算年齡
+    let age = today.getFullYear() - birth.getFullYear();
+    
+    // 檢查月份和日期
+    if (
+      today.getMonth() < birth.getMonth() || 
+      (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())
+    ) {
+      age--;
+    }
+    
+    return age >= 18;
   }
 
   async function initLiff() {
@@ -206,6 +210,13 @@
       return;
     }
 
+    // 檢查年齡
+    const birthDate = document.getElementById('birthday').value;
+    if (!isAtLeast18YearsOld(birthDate)) {
+      alert("👶 抱歉，我們目前只收滿 18 歲的大人會員唷！");
+      return;
+    }
+
     const data = {
       formType: "membership",
       lineUID: document.getElementById('userId').value,
@@ -228,16 +239,20 @@
 
     try {
       console.log('開始發送表單數據...');
+      console.log('發送數據:', data);
+      
+      // 嘗試不同的認證方式
       const response = await fetch("https://proxy-server-xr4v2vbiba-de.a.run.app", {
         method: 'POST',
         body: JSON.stringify(data),
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': 'Basic ' + btoa('tony@genwintech.com:')  // 使用 Basic Authentication
+          'Authorization': 'Bearer tony@genwintech.com'  // 改用Bearer令牌
         }
       });
 
-      console.log('收到回應:', response.status);
+      console.log('收到回應:', response.status, response.statusText);
+      console.log('回應頭:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -245,7 +260,18 @@
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result = await response.json();
+      // 嘗試解析JSON回應
+      let result;
+      const responseText = await response.text();
+      console.log('原始回應:', responseText);
+      
+      try {
+        result = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('JSON解析錯誤:', jsonError);
+        throw new Error('無法解析伺服器回應');
+      }
+      
       console.log('處理結果:', result);
       
       if (result.error) {
