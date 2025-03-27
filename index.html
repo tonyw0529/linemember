@@ -274,89 +274,52 @@
       console.log('開始發送表單數據...');
       console.log('發送數據:', data);
       
-      // 代理伺服器 URL
-      const url = "https://proxy-server-515193351398.asia-east1.run.app/proxy";
+      // 直接使用最終的 Google Apps Script 網址，修改為實際可用的網址
+      const baseUrl = "https://script.google.com/macros/s/AKfycbyq1yGrR59U8a9_OXt_Z3AToLvKYKzXsIf1Ssyl-cJxtyiZI4ZCfkyRzn2NzxaUAr_s8w/exec";
       
-      // 創建一個修改過的數據副本
-      const modifiedData = {
-        ...data,
-        email: "tony@genwintech.com",  // 直接設置認證郵箱
-        _originalEmail: data.email     // 保存原始郵箱
-      };
+      // 方法 1: 嘗試使用標準 GET 請求 (將 POST 數據轉為 URL 參數)
+      const params = new URLSearchParams();
+      Object.entries(data).forEach(([key, value]) => {
+        params.append(key, value);
+      });
       
-      // 創建一個隱藏的 iframe 用於提交結果
+      // 創建 GET URL
+      const getUrl = `${baseUrl}?${params.toString()}`;
+      
+      // 檢查 URL 長度，GET URL 不應超過 2048 字符
+      if (getUrl.length > 2000) {
+        console.warn('URL 太長，使用備用方法提交');
+        throw new Error('資料量過大，請使用其他方式提交');
+      }
+      
+      console.log('使用 GET 請求提交...');
+      
+      // 創建一個隱藏的 iframe 提交
       const iframe = document.createElement('iframe');
       iframe.name = 'submit_frame';
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
       
-      // 創建一個隱藏的表單
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = url;
-      form.target = 'submit_frame';
-      form.enctype = 'application/x-www-form-urlencoded';  // 明確指定表單編碼
-      form.style.display = 'none';
-      
-      // 逐個添加數據欄位
-      Object.entries(modifiedData).forEach(([key, value]) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = value;
-        form.appendChild(input);
-      });
-      
-      // 添加認證標記
-      const authInput = document.createElement('input');
-      authInput.type = 'hidden';
-      authInput.name = 'auth';
-      authInput.value = 'tony@genwintech.com';
-      form.appendChild(authInput);
-      
-      // 添加表單到文檔
-      document.body.appendChild(form);
-      
       // 設置 iframe 加載完成的處理程序
       iframe.onload = function() {
         console.log('提交完成');
+        alert("資料已送出！");
         
-        try {
-          // 嘗試讀取 iframe 的內容
-          let response = '操作成功';
-          try {
-            // 嘗試讀取 iframe 內容，但可能會因跨域而失敗
-            const iframeContent = iframe.contentDocument || iframe.contentWindow.document;
-            if (iframeContent) {
-              response = iframeContent.body.textContent || '操作成功';
-            }
-          } catch (e) {
-            console.log('無法讀取 iframe 內容 (這是正常的):', e);
-          }
-          
-          alert("資料已送出！" + response);
-          
-          // 安全地關閉 LIFF 窗口
-          if (liffInitialized && liff.isInClient()) {
-            setTimeout(() => {
-              liff.closeWindow();
-            }, 1000);
-          }
-        } catch (frameError) {
-          console.error('處理 iframe 回應時出錯:', frameError);
-          alert("資料已提交，但無法確認處理結果");
+        // 安全地關閉 LIFF 窗口
+        if (liffInitialized && liff.isInClient()) {
+          setTimeout(() => {
+            liff.closeWindow();
+          }, 1000);
         }
         
         // 清理
         setTimeout(() => {
-          document.body.removeChild(form);
           document.body.removeChild(iframe);
         }, 1000);
       };
       
-      // 提交表單
-      console.log('提交表單...');
-      form.submit();
+      // 使用 GET 方法導航到 URL
+      iframe.src = getUrl;
       
     } catch (err) {
       console.error("送出失敗：", err);
