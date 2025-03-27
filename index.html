@@ -307,6 +307,56 @@
     initLiff();
   }
 
+  // 用於處理表單提交響應，統一處理各種情況
+  function handleSubmissionResponse(response) {
+    try {
+      // 嘗試解析 JSON 響應
+      let result = {};
+      if (typeof response === 'string') {
+        try {
+          result = JSON.parse(response);
+        } catch (e) {
+          // 不是有效的 JSON，使用原始響應
+          console.log('響應不是有效的 JSON，使用原始值');
+          result = { success: true };
+        }
+      } else {
+        result = response;
+      }
+
+      // 檢查是否是重複提交
+      if (result.error === 'duplicate_entry') {
+        alert('您已經是我們的會員，無需重複註冊！');
+        disableSubmitButton();
+        const submitButton = document.querySelector('.btn-submit');
+        submitButton.textContent = '您已是會員';
+        
+        // 記錄此用戶已提交以防止進一步嘗試
+        const userId = document.getElementById('userId').value;
+        recordSubmission(userId);
+        return;
+      }
+
+      // 正常成功提交
+      // 記錄此用戶已經提交過
+      const userId = document.getElementById('userId').value;
+      recordSubmission(userId);  
+      alert("恭喜您已經成功登錄成會員 謝謝！");
+      
+      // 關閉 LIFF 窗口（如果在 LIFF 環境中）
+      if (liffInitialized && liff.isInClient()) {
+        liff.closeWindow();
+      }
+    } catch (e) {
+      console.error('處理提交響應時出錯:', e);
+      alert("恭喜您已經成功登錄成會員 謝謝！");
+      
+      if (liffInitialized && liff.isInClient()) {
+        liff.closeWindow();
+      }
+    }
+  }
+
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -371,129 +421,109 @@
       // Google Apps Script 的網址
       const gasUrl = "https://script.google.com/macros/s/AKfycbyq1yGrR59U8a9_OXt_Z3AToLvKYKzXsIf1Ssyl-cJxtyiZI4ZCfkyRzn2NzxaUAr_s8w/exec";
       
-      // 方法 1: 使用 fetch API 發送 POST 請求
+      // 方法1: 使用 POST 請求發送數據
       try {
-        console.log('嘗試使用 POST 方法...');
-        
         const response = await fetch(gasUrl, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json' 
+          headers: {
+            'Content-Type': 'application/json',
           },
-          body: JSON.stringify(data),
-          mode: 'no-cors'  // 使用 no-cors 模式繞過 CORS 限制
+          body: JSON.stringify({
+            action: 'addMember',
+            ...data
+          }),
+          mode: 'no-cors'
         });
         
         console.log('POST 請求完成，狀態:', response);
-        // 記錄此用戶已經提交過
-        recordSubmission(userId);  
-        alert("恭喜您已經成功登錄成會員 謝謝！");
-        if (liffInitialized && liff.isInClient()) {
-          liff.closeWindow();
-        }
+        handleSubmissionResponse(response);
         return;
-      } catch (postError) {
-        console.error('POST 請求失敗:', postError);
-        // 繼續嘗試其他方法
+      } catch (error) {
+        console.error('POST 請求失敗:', error);
       }
-      
-      // 方法 2: 嘗試使用 GET 請求
+
+      // 方法2: 使用 GET 請求發送數據
       try {
-        console.log('嘗試使用 GET 請求...');
-        
-        // 創建 URL 參數
+        // 創建 URLSearchParams 對象
         const params = new URLSearchParams();
-        // 添加特殊的操作標記
+        // 添加 action 參數
         params.append('action', 'addMember');
-        
-        // 添加所有數據
-        Object.entries(data).forEach(([key, value]) => {
-          params.append(key, value);
-        });
-        
-        // 創建完整的 URL
+        // 添加所有表單數據
+        for (const key in data) {
+          params.append(key, data[key]);
+        }
+        // 構建完整的 URL
         const getUrl = `${gasUrl}?${params.toString()}`;
         
+        // 檢查 URL 長度
         if (getUrl.length > 2000) {
-          console.warn('URL 過長，可能導致問題');
+          console.warn('警告: URL 太長，可能超過限制。長度:', getUrl.length);
         }
         
-        // 使用 fetch API 發送 GET 請求
-        const response = await fetch(getUrl, { 
-          method: 'GET',
-          mode: 'no-cors'  // 使用 no-cors 模式繞過 CORS 限制
-        });
-        
-        console.log('GET 請求完成，狀態:', response);
-        // 記錄此用戶已經提交過
-        recordSubmission(userId);
-        alert("恭喜您已經成功登錄成會員 謝謝！");
-        if (liffInitialized && liff.isInClient()) {
-          liff.closeWindow();
-        }
+        // 發送 GET 請求
+        const response = await fetch(getUrl);
+        const responseText = await response.text();
+        console.log('GET 請求完成，響應:', responseText);
+        handleSubmissionResponse(responseText);
         return;
-      } catch (getError) {
-        console.error('GET 請求失敗:', getError);
-        // 繼續嘗試其他方法
+      } catch (error) {
+        console.error('GET 請求失敗:', error);
       }
-      
-      // 方法 3: 使用 iframe 和 GET 參數
-      console.log('嘗試使用 iframe 方法...');
-      
-      // 創建 URL 參數
-      const iframeParams = new URLSearchParams();
-      // 添加特殊的操作標記
-      iframeParams.append('action', 'addMember');
-      
-      // 添加所有數據
-      Object.entries(data).forEach(([key, value]) => {
-        iframeParams.append(key, value);
-      });
-      
-      // 創建完整的 URL
-      const iframeUrl = `${gasUrl}?${iframeParams.toString()}`;
-      
-      if (iframeUrl.length > 2000) {
-        console.warn('URL 過長，可能導致問題');
-      }
-      
-      // 創建一個隱藏的 iframe
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      
-      // 設置 iframe 加載完成的處理程序
-      iframe.onload = function() {
-        console.log('iframe 加載完成');
-        // 記錄此用戶已經提交過
-        recordSubmission(userId);
-        alert("恭喜您已經成功登錄成會員 謝謝！");
+
+      // 方法3: 使用 iframe 發送數據
+      try {
+        console.log('使用 iframe 方法發送數據');
         
-        // 安全地關閉 LIFF 窗口
-        if (liffInitialized && liff.isInClient()) {
-          setTimeout(() => {
-            liff.closeWindow();
-          }, 1000);
+        // 創建隱藏的 iframe
+        let iframe = document.getElementById("hidden-iframe");
+        if (!iframe) {
+          iframe = document.createElement("iframe");
+          iframe.id = "hidden-iframe";
+          iframe.name = "hidden-iframe";
+          iframe.style.display = "none";
+          document.body.appendChild(iframe);
         }
         
-        // 清理
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 1000);
-      };
+        // 創建 URLSearchParams 對象
+        const params = new URLSearchParams();
+        // 添加 action 參數
+        params.append('action', 'addMember');
+        // 添加所有表單數據
+        for (const key in data) {
+          params.append(key, data[key]);
+        }
+        // 構建完整的 URL
+        const iframeUrl = `${gasUrl}?${params.toString()}`;
+        
+        // 檢查 URL 長度
+        if (iframeUrl.length > 2000) {
+          console.warn('警告: URL 太長，可能超過限制。長度:', iframeUrl.length);
+        }
+        
+        // 設置 iframe 加載完成的處理程序
+        iframe.onload = function() {
+          console.log('iframe 加載完成');
+          handleSubmissionResponse({ success: true });
+        };
+        
+        // 設置 iframe 的 src 屬性以加載 URL
+        iframe.src = iframeUrl;
+        
+      } catch (error) {
+        console.error('iframe 方法失敗:', error);
+        alert("提交表單時出錯，請重試");
+      }
       
-      // 設置 iframe 的 src
-      iframe.src = iframeUrl;
-      console.log('iframe 已加載 URL, 長度:', iframeUrl.length);
+    } catch (error) {
+      console.error('發送表單數據失敗:', error);
+      alert("提交表單時出錯，請重試");
       
-    } catch (err) {
-      console.error("送出失敗：", err);
-      console.error("錯誤詳情：", {
-        message: err.message,
-        stack: err.stack,
-        name: err.name
-      });
-      alert("送出失敗：" + err.message);
+      // 重置提交狀態，允許再次嘗試
+      hasSubmitted = false;
+      const submitButton = document.querySelector('.btn-submit');
+      submitButton.disabled = false;
+      submitButton.textContent = '送出資料';
+      submitButton.style.backgroundColor = '#00c300';
     }
   });
 </script>
