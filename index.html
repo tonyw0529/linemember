@@ -152,6 +152,36 @@
     }
   }
 
+  // 清除提交記錄
+  function clearSubmissionRecord(userId) {
+    try {
+      const submittedData = localStorage.getItem('submittedUserIds');
+      if (submittedData) {
+        let submittedUsers = JSON.parse(submittedData);
+        // 從列表中移除特定用戶
+        submittedUsers = submittedUsers.filter(id => id !== userId);
+        localStorage.setItem('submittedUserIds', JSON.stringify(submittedUsers));
+      }
+      console.log('已清除用戶提交記錄:', userId);
+      return true;
+    } catch (e) {
+      console.error('清除提交記錄時出錯:', e);
+      return false;
+    }
+  }
+
+  // 清除所有提交記錄
+  function clearAllSubmissionRecords() {
+    try {
+      localStorage.removeItem('submittedUserIds');
+      console.log('已清除所有提交記錄');
+      return true;
+    } catch (e) {
+      console.error('清除所有提交記錄時出錯:', e);
+      return false;
+    }
+  }
+
   // 禁用提交按鈕
   function disableSubmitButton() {
     const submitButton = document.querySelector('.btn-submit');
@@ -262,7 +292,22 @@
       try {
         const profile = await liff.getProfile();
         console.log('獲取用戶資料成功:', profile);
-        document.getElementById('userId').value = profile.userId;
+        const userId = profile.userId;
+        document.getElementById('userId').value = userId;
+        
+        // 添加一個參數檢查，如果URL中包含clear=true，則清除該用戶的提交記錄
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('clear') === 'true') {
+          clearSubmissionRecord(userId);
+          console.log('根據URL參數清除了用戶提交記錄');
+        }
+        
+        // 如果URL中包含clearAll=true，則清除所有用戶的提交記錄
+        if (urlParams.get('clearAll') === 'true') {
+          clearAllSubmissionRecords();
+          console.log('根據URL參數清除了所有用戶提交記錄');
+        }
+        
       } catch (profileError) {
         console.error('獲取用戶資料失敗:', profileError);
         // 即使獲取用戶資料失敗，也繼續初始化其他部分
@@ -405,11 +450,17 @@
     // 獲取用戶 ID
     const userId = document.getElementById('userId').value;
     
-    // 檢查此用戶是否已經提交過
+    // 檢查此用戶是否已經提交過，並提供重置選項
     if (checkPreviousSubmission(userId)) {
-      alert('您之前已經提交過會員資料，無需重複提交');
-      disableSubmitButton();
-      return;
+      const retry = confirm('系統顯示您之前已經提交過會員資料。如果您確定需要重新提交，請點擊"確定"。');
+      if (retry) {
+        // 用戶確認要重新提交，清除之前的記錄
+        clearSubmissionRecord(userId);
+        console.log('用戶選擇重新提交，已清除之前的提交記錄');
+      } else {
+        disableSubmitButton();
+        return;
+      }
     }
 
     const data = {
