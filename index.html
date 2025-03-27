@@ -456,7 +456,28 @@
         }
       } else {
         result = response;
-        console.log('非字符串響應:', result);
+        console.log('非字符串響應對象:', result);
+        console.log('響應類型:', typeof response);
+        // 如果是fetch response對象，嘗試讀取
+        if (response instanceof Response) {
+          response.text().then(text => {
+            console.log('從Response對象提取的文本:', text);
+            try {
+              const jsonData = JSON.parse(text);
+              console.log('從Response提取的JSON:', jsonData);
+              // 顯示會員編號
+              if (jsonData.memberNumber) {
+                showMemberNumberDialog(jsonData.memberNumber);
+              } else if (jsonData.data && jsonData.data[1]) {
+                showMemberNumberDialog(jsonData.data[1]);
+              }
+            } catch (e) {
+              console.error('無法將提取的文本解析為JSON:', e);
+            }
+          }).catch(err => {
+            console.error('無法從Response提取文本:', err);
+          });
+        }
       }
 
       // 檢查是否是重複提交
@@ -474,17 +495,26 @@
 
       // 獲取會員編號
       let memberNumber = '';
-      console.log('檢查會員編號...');
+      console.log('檢查會員編號，result:', result);
+      
       if (result.memberNumber) {
         memberNumber = result.memberNumber;
         console.log('從result.memberNumber獲取到會員編號:', memberNumber);
-      } else if (result.data && result.data[1]) {
+      } else if (result.data && Array.isArray(result.data) && result.data.length > 1) {
         memberNumber = result.data[1]; // 會員編號在陣列的第二個位置
         console.log('從result.data[1]獲取到會員編號:', memberNumber);
-      } else if (result.status === 'success' && result.data && Array.isArray(result.data)) {
+      } else if (result.status === 'success' && result.data && typeof result.data === 'object') {
         // 嘗試從其他可能的位置提取
-        memberNumber = result.data[1] || '';
-        console.log('嘗試從其他位置獲取會員編號:', memberNumber);
+        console.log('嘗試從其他位置獲取會員編號，data內容:', result.data);
+        if (Array.isArray(result.data)) {
+          memberNumber = result.data[1] || '';
+        }
+      }
+
+      // 如果我們有會員編號，直接顯示它
+      if (memberNumber) {
+        showMemberNumberDialog(memberNumber);
+        return;
       }
 
       // 記錄此用戶已經提交過
@@ -520,6 +550,31 @@
         }
       });
     }
+  }
+
+  // 專門用於顯示包含會員編號的對話框
+  function showMemberNumberDialog(memberNumber) {
+    if (!memberNumber) return;
+    
+    // 記錄此用戶已經提交過
+    const userId = document.getElementById('userId').value;
+    recordSubmission(userId);
+    
+    // 顯示成功提示，包含會員編號
+    const successMessage = "恭喜您已經成功登錄成會員<br><br>您的會員編號是：<strong style='color:#ff97e9;font-size:18px'>" + 
+      memberNumber + "</strong><br><br>謝謝！";
+    
+    showCustomDialog(successMessage, "註冊成功").then(() => {
+      // 對話框關閉後的操作
+      // 添加緩衝時間後再關閉窗口
+      if (liffInitialized && liff.isInClient()) {
+        console.log('將在3秒後關閉LIFF窗口');
+        setTimeout(() => {
+          console.log('緩衝時間結束，關閉LIFF窗口');
+          liff.closeWindow();
+        }, 3000);
+      }
+    });
   }
 
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
@@ -640,8 +695,28 @@
           // 發送 GET 請求
           const response = await fetch(getUrl);
           const responseText = await response.text();
-          console.log('GET 請求完成，響應:', responseText);
-          handleSubmissionResponse(responseText);
+          console.log('GET 請求完成，完整響應:', responseText);
+          
+          // 顯示原始響應數據用於調試
+          console.log('GET 響應原始內容:', responseText);
+          
+          try {
+            // 嘗試解析 JSON
+            const jsonResponse = JSON.parse(responseText);
+            console.log('GET 響應解析為 JSON:', jsonResponse);
+            
+            // 記錄響應中的會員編號
+            if (jsonResponse.memberNumber) {
+              console.log('找到會員編號:', jsonResponse.memberNumber);
+            } else if (jsonResponse.data && jsonResponse.data[1]) {
+              console.log('從data陣列找到會員編號:', jsonResponse.data[1]);
+            }
+            
+            handleSubmissionResponse(jsonResponse);
+          } catch (e) {
+            console.error('無法解析 JSON:', e);
+            handleSubmissionResponse(responseText);
+          }
           return;
         } catch (error) {
           console.error('GET 請求失敗:', error);
