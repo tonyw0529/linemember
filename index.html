@@ -166,6 +166,22 @@
     return age >= 18;
   }
 
+  // 格式化車牌號碼：轉大寫並移除"-"和"服務"
+  function formatLicensePlate(plate) {
+    if (!plate) return "";
+    
+    // 轉換為大寫
+    let formatted = plate.toUpperCase();
+    
+    // 移除所有的'-'符號
+    formatted = formatted.replace(/-/g, '');
+    
+    // 移除"服務"字樣
+    formatted = formatted.replace(/服務/g, '');
+    
+    return formatted.trim();
+  }
+
   async function initLiff() {
     try {
       console.log('開始初始化 LIFF...');
@@ -260,9 +276,9 @@
       birthday: document.getElementById('birthday').value,
       city: document.getElementById('city').value,
       district: document.getElementById('district').value,
-      plates0: document.getElementById('plate0').value.trim(),
-      plates1: document.getElementById('plate1').value.trim() || "",
-      plates2: document.getElementById('plate2').value.trim() || ""
+      plates0: formatLicensePlate(document.getElementById('plate0').value.trim()),
+      plates1: formatLicensePlate(document.getElementById('plate1').value.trim()),
+      plates2: formatLicensePlate(document.getElementById('plate2').value.trim())
     };
 
     if (!data.plates0) {
