@@ -652,29 +652,8 @@
         
         // Google Apps Script 的網址
         const gasUrl = "https://script.google.com/macros/s/AKfycbyq1yGrR59U8a9_OXt_Z3AToLvKYKzXsIf1Ssyl-cJxtyiZI4ZCfkyRzn2NzxaUAr_s8w/exec";
-        
-        // 方法1: 使用 POST 請求發送數據
-        try {
-          const response = await fetch(gasUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              action: 'addMember',
-              ...data
-            }),
-            mode: 'no-cors'
-          });
-          
-          console.log('POST 請求完成，狀態:', response);
-          handleSubmissionResponse(response);
-          return;
-        } catch (error) {
-          console.error('POST 請求失敗:', error);
-        }
 
-        // 方法2: 使用 GET 請求發送數據
+        // 優先使用 GET 請求發送數據以獲取正確響應
         try {
           // 創建 URLSearchParams 對象
           const params = new URLSearchParams();
@@ -692,37 +671,93 @@
             console.warn('警告: URL 太長，可能超過限制。長度:', getUrl.length);
           }
           
+          console.log('發送 GET 請求...');
           // 發送 GET 請求
           const response = await fetch(getUrl);
           const responseText = await response.text();
           console.log('GET 請求完成，完整響應:', responseText);
           
-          // 顯示原始響應數據用於調試
-          console.log('GET 響應原始內容:', responseText);
-          
-          try {
-            // 嘗試解析 JSON
-            const jsonResponse = JSON.parse(responseText);
-            console.log('GET 響應解析為 JSON:', jsonResponse);
-            
-            // 記錄響應中的會員編號
-            if (jsonResponse.memberNumber) {
-              console.log('找到會員編號:', jsonResponse.memberNumber);
-            } else if (jsonResponse.data && jsonResponse.data[1]) {
-              console.log('從data陣列找到會員編號:', jsonResponse.data[1]);
+          if (responseText && responseText.trim()) {
+            try {
+              // 嘗試解析 JSON
+              const jsonResponse = JSON.parse(responseText);
+              console.log('GET 響應解析為 JSON:', jsonResponse);
+              
+              // 檢查是否是重複提交
+              if (jsonResponse.error === 'duplicate_entry') {
+                showCustomDialog('您已經是我們的會員，無需重複註冊！');
+                disableSubmitButton();
+                const submitButton = document.querySelector('.btn-submit');
+                submitButton.textContent = '您已是會員';
+                recordSubmission(userId);
+                return;
+              }
+              
+              // 記錄響應中的會員編號
+              if (jsonResponse.memberNumber) {
+                console.log('找到會員編號:', jsonResponse.memberNumber);
+                showMemberNumberDialog(jsonResponse.memberNumber);
+                recordSubmission(userId);
+                return;
+              } else if (jsonResponse.data && jsonResponse.data[1]) {
+                console.log('從data陣列找到會員編號:', jsonResponse.data[1]);
+                showMemberNumberDialog(jsonResponse.data[1]);
+                recordSubmission(userId);
+                return;
+              }
+              
+              // 沒有找到會員編號但提交成功
+              if (jsonResponse.status === 'success') {
+                recordSubmission(userId);
+                showCustomDialog("恭喜您已經成功登錄成會員<br><br>謝謝！", "註冊成功");
+                return;
+              }
+            } catch (e) {
+              console.error('無法解析 JSON:', e);
             }
-            
-            handleSubmissionResponse(jsonResponse);
-          } catch (e) {
-            console.error('無法解析 JSON:', e);
-            handleSubmissionResponse(responseText);
           }
-          return;
+          
+          // 如果GET請求沒有返回有效數據，繼續嘗試POST
         } catch (error) {
           console.error('GET 請求失敗:', error);
         }
+        
+        // 備用方法: 使用 POST 請求
+        try {
+          console.log('嘗試使用POST方法...');
+          const response = await fetch(gasUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'addMember',
+              ...data
+            })
+          });
+          
+          if (response.ok) {
+            const responseText = await response.text();
+            console.log('POST 請求完成，響應:', responseText);
+            
+            try {
+              const jsonResponse = JSON.parse(responseText);
+              if (jsonResponse.memberNumber) {
+                showMemberNumberDialog(jsonResponse.memberNumber);
+              } else {
+                showCustomDialog("恭喜您已經成功登錄成會員<br><br>謝謝！", "註冊成功");
+              }
+              recordSubmission(userId);
+              return;
+            } catch (e) {
+              console.error('解析POST響應失敗:', e);
+            }
+          }
+        } catch (error) {
+          console.error('POST 請求失敗:', error);
+        }
 
-        // 方法3: 使用 iframe 發送數據
+        // 如果前兩種方法都失敗，使用 iframe 方法
         try {
           console.log('使用 iframe 方法發送數據');
           
@@ -755,7 +790,8 @@
           // 設置 iframe 加載完成的處理程序
           iframe.onload = function() {
             console.log('iframe 加載完成');
-            handleSubmissionResponse({ success: true });
+            recordSubmission(userId);
+            showCustomDialog("恭喜您已經成功登錄成會員<br><br>謝謝！", "註冊成功");
           };
           
           // 設置 iframe 的 src 屬性以加載 URL
@@ -763,12 +799,12 @@
           
         } catch (error) {
           console.error('iframe 方法失敗:', error);
-          alert("提交表單時出錯，請重試");
+          showCustomDialog("提交表單時出錯，請重試");
         }
         
       } catch (error) {
         console.error('發送表單數據失敗:', error);
-        alert("提交表單時出錯，請重試");
+        showCustomDialog("提交表單時出錯，請重試");
         
         // 重置提交狀態，允許再次嘗試
         hasSubmitted = false;
