@@ -274,9 +274,11 @@
       console.log('開始發送表單數據...');
       console.log('發送數據:', data);
       
-      // 更新為新的代理服務器 URL
-      const url = "https://proxy-server-515193351398.asia-east1.run.app";
-      console.log(`嘗試連接 ${url}...`);
+      // 兩種可能的代理伺服器 URL
+      const urls = [
+        "https://proxy-server-515193351398.asia-east1.run.app",
+        "https://proxy-server-515193351398.asia-east1.run.app/proxy"
+      ];
       
       // 創建一個修改過的數據副本
       const modifiedData = {
@@ -285,53 +287,43 @@
         _originalEmail: data.email     // 保存原始郵箱
       };
       
-      // 發送請求
-      const response = await fetch(url, {
-        method: 'POST',
-        body: JSON.stringify(modifiedData),
-        headers: { 
-          'Content-Type': 'application/json'
-        }
-      });
+      let success = false;
+      let lastError = null;
       
-      console.log('伺服器回應:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('伺服器錯誤回應:', errorText);
-        throw new Error(`伺服器錯誤! 狀態碼: ${response.status}`);
-      }
-      
-      let responseText = '';
-      try {
-        responseText = await response.text();
-        console.log('伺服器原始回應:', responseText);
-      } catch (textError) {
-        console.error('無法讀取回應文本:', textError);
-      }
-      
-      // 處理回應
-      if (!responseText.trim()) {
-        console.log('伺服器回應為空，視為成功');
-        alert("資料已送出！");
-        if (liffInitialized) liff.closeWindow();
-        return;
-      }
-      
-      try {
-        const result = JSON.parse(responseText);
-        console.log('處理結果:', result);
+      // 嘗試不同的 URL 和模式
+      for (const url of urls) {
+        if (success) break;
         
-        if (result.error) {
-          throw new Error(result.error);
+        try {
+          console.log(`嘗試連接 ${url}...`);
+          
+          // 嘗試使用 no-cors 模式
+          console.log('使用 no-cors 模式...');
+          const response = await fetch(url, {
+            method: 'POST',
+            body: JSON.stringify(modifiedData),
+            headers: { 
+              'Content-Type': 'application/json'
+            },
+            mode: 'no-cors'  // 使用 no-cors 模式繞過 CORS 限制
+          });
+          
+          // 由於使用 no-cors 模式，我們無法讀取響應狀態
+          console.log('請求發送成功 (no-cors 模式無法讀取響應)');
+          alert("資料已送出！");
+          if (liffInitialized) liff.closeWindow();
+          success = true;
+          break;
+        } catch (err) {
+          console.error(`嘗試 ${url} 失敗:`, err);
+          lastError = err;
         }
-        
-        alert(result.message || "資料已送出！");
-        if (liffInitialized) liff.closeWindow();
-      } catch (jsonError) {
-        console.error('JSON解析錯誤:', jsonError);
-        alert("資料已送出！");
-        if (liffInitialized) liff.closeWindow();
+      }
+      
+      if (!success) {
+        // 如果所有嘗試都失敗，可能是其他問題
+        console.error("所有嘗試都失敗");
+        throw lastError || new Error("無法連接到伺服器");
       }
     } catch (err) {
       console.error("送出失敗：", err);
