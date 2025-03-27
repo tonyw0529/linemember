@@ -274,35 +274,99 @@
       console.log('開始發送表單數據...');
       console.log('發送數據:', data);
       
-      // 直接使用最終的 Google Apps Script 網址，修改為實際可用的網址
-      const baseUrl = "https://script.google.com/macros/s/AKfycbyq1yGrR59U8a9_OXt_Z3AToLvKYKzXsIf1Ssyl-cJxtyiZI4ZCfkyRzn2NzxaUAr_s8w/exec";
+      // Google Apps Script 的網址
+      const gasUrl = "https://script.google.com/macros/s/AKfycbyq1yGrR59U8a9_OXt_Z3AToLvKYKzXsIf1Ssyl-cJxtyiZI4ZCfkyRzn2NzxaUAr_s8w/exec";
       
-      // 方法 1: 嘗試使用標準 GET 請求 (將 POST 數據轉為 URL 參數)
-      const params = new URLSearchParams();
-      Object.entries(data).forEach(([key, value]) => {
-        params.append(key, value);
-      });
-      
-      // 創建 GET URL
-      const getUrl = `${baseUrl}?${params.toString()}`;
-      
-      // 檢查 URL 長度，GET URL 不應超過 2048 字符
-      if (getUrl.length > 2000) {
-        console.warn('URL 太長，使用備用方法提交');
-        throw new Error('資料量過大，請使用其他方式提交');
+      // 方法 1: 使用 fetch API 發送 POST 請求
+      try {
+        console.log('嘗試使用 POST 方法...');
+        
+        const response = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify(data),
+          mode: 'no-cors'  // 使用 no-cors 模式繞過 CORS 限制
+        });
+        
+        console.log('POST 請求完成，狀態:', response);
+        alert("資料已送出！");
+        if (liffInitialized && liff.isInClient()) {
+          liff.closeWindow();
+        }
+        return;
+      } catch (postError) {
+        console.error('POST 請求失敗:', postError);
+        // 繼續嘗試其他方法
       }
       
-      console.log('使用 GET 請求提交...');
+      // 方法 2: 嘗試使用 GET 請求
+      try {
+        console.log('嘗試使用 GET 請求...');
+        
+        // 創建 URL 參數
+        const params = new URLSearchParams();
+        // 添加特殊的操作標記
+        params.append('action', 'addMember');
+        
+        // 添加所有數據
+        Object.entries(data).forEach(([key, value]) => {
+          params.append(key, value);
+        });
+        
+        // 創建完整的 URL
+        const getUrl = `${gasUrl}?${params.toString()}`;
+        
+        if (getUrl.length > 2000) {
+          console.warn('URL 過長，可能導致問題');
+        }
+        
+        // 使用 fetch API 發送 GET 請求
+        const response = await fetch(getUrl, { 
+          method: 'GET',
+          mode: 'no-cors'  // 使用 no-cors 模式繞過 CORS 限制
+        });
+        
+        console.log('GET 請求完成，狀態:', response);
+        alert("資料已送出！");
+        if (liffInitialized && liff.isInClient()) {
+          liff.closeWindow();
+        }
+        return;
+      } catch (getError) {
+        console.error('GET 請求失敗:', getError);
+        // 繼續嘗試其他方法
+      }
       
-      // 創建一個隱藏的 iframe 提交
+      // 方法 3: 使用 iframe 和 GET 參數
+      console.log('嘗試使用 iframe 方法...');
+      
+      // 創建 URL 參數
+      const iframeParams = new URLSearchParams();
+      // 添加特殊的操作標記
+      iframeParams.append('action', 'addMember');
+      
+      // 添加所有數據
+      Object.entries(data).forEach(([key, value]) => {
+        iframeParams.append(key, value);
+      });
+      
+      // 創建完整的 URL
+      const iframeUrl = `${gasUrl}?${iframeParams.toString()}`;
+      
+      if (iframeUrl.length > 2000) {
+        console.warn('URL 過長，可能導致問題');
+      }
+      
+      // 創建一個隱藏的 iframe
       const iframe = document.createElement('iframe');
-      iframe.name = 'submit_frame';
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
       
       // 設置 iframe 加載完成的處理程序
       iframe.onload = function() {
-        console.log('提交完成');
+        console.log('iframe 加載完成');
         alert("資料已送出！");
         
         // 安全地關閉 LIFF 窗口
@@ -318,8 +382,9 @@
         }, 1000);
       };
       
-      // 使用 GET 方法導航到 URL
-      iframe.src = getUrl;
+      // 設置 iframe 的 src
+      iframe.src = iframeUrl;
+      console.log('iframe 已加載 URL, 長度:', iframeUrl.length);
       
     } catch (err) {
       console.error("送出失敗：", err);
